@@ -261,7 +261,7 @@ export function ThoughtManifest({
               transform: `translate(-50%, -50%) scale(${0.72 + index / Math.max(1, collection.length) * 0.45})`,
             }}
           >
-            {character === ' ' ? '·' : character}
+            {character === ' ' ? '.' : character}
           </span>
         );
       })}

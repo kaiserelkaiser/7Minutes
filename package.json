@@ -2,10 +2,15 @@
   "name": "workspace",
   "version": "0.0.0",
   "license": "MIT",
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=20.19.0 <25"
+  },
   "scripts": {
     "preinstall": "node ./scripts/enforce-pnpm.cjs",
     "build:web": "pnpm run typecheck:libs && pnpm --filter @workspace/devether build",
     "build:server": "pnpm run typecheck:libs && pnpm --filter @workspace/api-server build",
+    "build:railway": "pnpm run typecheck && pnpm --filter @workspace/api-server build && pnpm --filter @workspace/devether build",
     "start:server": "pnpm --filter @workspace/api-server start",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",

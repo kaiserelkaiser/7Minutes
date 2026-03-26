@@ -200,7 +200,7 @@ export default function Rift() {
         <div className="font-mono text-[11px] uppercase tracking-[0.58em] text-white/30">organism status</div>
         <h1 className="mt-4 font-display text-[clamp(1.8rem,4vw,3.6rem)] uppercase tracking-[0.28em] text-white">{topic}</h1>
         <div className="mt-3 text-sm leading-7 text-white/55">
-          {Object.values(users).filter((user) => !user.isRadio).length} visible minds • heat {Math.round(temperature)} • {isChaos ? 'chaos mode' : 'living equilibrium'}
+          {Object.values(users).filter((user) => !user.isRadio).length} visible minds - heat {Math.round(temperature)} - {isChaos ? 'chaos mode' : 'living equilibrium'}
         </div>
       </div>
 
@@ -237,7 +237,7 @@ export default function Rift() {
 
       <div className="pointer-events-none absolute bottom-8 right-8 z-[150] text-right text-[10px] uppercase tracking-[0.52em] text-white/16">
         <div>{session.username}</div>
-        <div className="mt-2">7MINUTES • no history • no replay</div>
+        <div className="mt-2">7MINUTES - no history - no replay</div>
         <div className="mt-2">{session.riftId}</div>
       </div>
 

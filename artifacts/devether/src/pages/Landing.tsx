@@ -245,7 +245,7 @@ export default function Landing() {
               </div>
               <div className="mt-2 text-xl text-white/88">{hoveredRoom.isQuantum ? 'quantum mystery room' : hoveredRoom.topic}</div>
               <div className="mt-1 text-sm text-white/48">
-                {hoveredRoom.userCount}/{hoveredRoom.maxUsers} minds orbiting • heat {Math.round(hoveredRoom.temperature)}
+                {hoveredRoom.userCount}/{hoveredRoom.maxUsers} minds orbiting - heat {Math.round(hoveredRoom.temperature)}
               </div>
             </div>
           ) : (
