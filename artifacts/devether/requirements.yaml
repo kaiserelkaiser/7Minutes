@@ -1,0 +1,20 @@
+packages:
+  "socket.io-client": "Real-time communication for rift events"
+  "three": "WebGL 3D rendering for neural background"
+  "@react-three/fiber": "React bindings for Three.js"
+  "@react-three/drei": "Useful helpers for React Three Fiber"
+  "framer-motion": "Smooth animations for UI and message orbs"
+  "clsx": "Utility for conditionally joining classNames"
+  "tailwind-merge": "Utility for merging tailwind classes safely"
+  "zustand": "Lightweight state management for canvas/UI shared state"
+
+images:
+  - path: "artifacts/devether/public/images/cyber-texture.png"
+    description: "Abstract subtle dark cyberpunk texture with very faint glowing grid lines, deep purple and black"
+    aspect_ratio: "16:9"
+
+notes:
+  - Socket.io connects to the same origin '/'
+  - The backend handles message fading and broadcasts 'message-faded'
+  - The backend broadcasts 'vibe-update' based on conversation tone
+  - Orbs are rendered via DOM overlaying the Three.js canvas to easily support text and code blocks

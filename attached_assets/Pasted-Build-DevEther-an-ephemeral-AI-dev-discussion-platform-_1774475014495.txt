@@ -1,0 +1,93 @@
+Build "DevEther" - an ephemeral AI/dev discussion platform with a radical, never-seen-before interface.
+
+CORE CONCEPT:
+- Developers join temporary "thought bubbles" for 3-5 minute conversations
+- Messages fade and disappear in real-time as new ones arrive
+- The entire interface is a living, breathing organism
+
+REVOLUTIONARY INTERFACE DESIGN:
+
+1. CANVAS-BASED LIQUID UI:
+   - No boxes, no cards, no traditional chat bubbles
+   - Messages appear as floating, morphing orbs of light that pulse with activity
+   - Each user has a unique color signature that shifts based on their typing speed
+   - Messages are written in circular/spiral patterns around a central "conversation core"
+   - As messages age, they literally dissolve into particles and drift away
+   - Background is a dynamic neural network visualization that reacts to conversation intensity
+
+2. SPATIAL CONVERSATION:
+   - Users are represented as glowing nodes that move closer when they reply to each other
+   - You can "orbit" around interesting conversations happening in 3D space
+   - Messages don't scroll - they float in 3D space and you navigate through them
+   - Conversations have gravitational pull - popular topics draw more users visually
+
+3. INTERACTION MECHANICS:
+   - Type anywhere on the canvas, your words follow your cursor in flowing ribbons
+   - Click and drag to "throw" your message into the conversation sphere
+   - Double-tap space to create a "thought burst" - sends message with particle explosion
+   - Shake your mouse to summon a random topic prompt
+   - Messages you're reading glow brighter, others dim (personal focus mode)
+
+4. EPHEMERAL FEATURES:
+   - 5-minute conversation timer displayed as a shrinking energy field
+   - Messages start fading after 2 minutes, completely gone by 4 minutes
+   - A "memory wisp" animation plays when conversations end - everything dissolves
+   - No save, no history, no screenshots (disable right-click, add watermark overlay)
+   - "Ghost mode" - lurk invisibly as a transparent orb
+
+5. VISUAL STYLE:
+   - Glassmorphism meets cyberpunk meets aurora borealis
+   - Deep space background (dark purples, blues, blacks)
+   - Neon accents (cyan, magenta, electric blue, acid green)
+   - Smooth WebGL particle effects
+   - Everything glows, pulses, and breathes
+   - Subtle chromatic aberration on text for that "transmission" feel
+
+6. ROOM MECHANICS:
+   - Rooms are called "Rifts" - visualized as swirling portals
+   - Topics: "AI Futures", "Code Nightmares", "Architecture Wars", "Debug Hell", "Random Chaos"
+   - Max 8 people per Rift (intimate, fast-paced)
+   - When Rift closes, it implodes with a visual effect and everyone is ejected
+
+7. TECH STACK:
+   - React + TypeScript
+   - Three.js or PixiJS for WebGL graphics
+   - Socket.io for real-time
+   - Framer Motion for UI animations
+   - Node.js + Express backend
+   - In-memory storage only (Redis for active sessions)
+
+8. UNIQUE FEATURES:
+   - "Vibe Meter" - AI analyzes conversation tone, displays as ambient color shift
+   - "Code Snippet Highlighter" - detects code, renders it as holographic blocks
+   - "Energy Trails" - active users leave glowing trails showing their movement
+   - "Thought Collision" - when two users type same word, visual spark effect
+   - Typing indicators are animated auras around user nodes
+   - Random "conversation catalyst" drops - AI suggests wild topics mid-chat
+
+9. SOUND DESIGN:
+   - Ambient electronic hum
+   - Whoosh sounds when messages send
+   - Soft chimes when users join/leave
+   - Crescendo when conversations heat up
+   - Dissolve sound when messages fade
+
+10. ANTI-FEATURES (things to AVOID):
+    - No traditional navbar
+    - No profile pictures (just abstract geometric avatars)
+    - No like buttons or reactions
+    - No user stats or gamification
+    - No endless scroll
+    - No persistence whatsoever
+
+TECHNICAL REQUIREMENTS:
+- Fully responsive (desktop primary, mobile adapted)
+- 60fps animations
+- Handle 8 concurrent users per room smoothly
+- Messages auto-delete after 5 minutes
+- Session-only data (cleared on page refresh)
+- Anonymous or minimal auth (just username)
+
+Make it feel like developers are communicating through some kind of quantum communication device from the future. Think Tron meets Discord meets a particle accelerator. Make it so visually stunning that people want to come back just to experience the interface, even if there's no one to talk to.
+
+The UI should feel ALIVE - not like a product, but like an organism.
