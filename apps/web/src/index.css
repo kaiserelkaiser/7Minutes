@@ -643,6 +643,33 @@
     animation: field-float 8s ease-in-out infinite;
   }
 
+  .aura-breathe-fast {
+    animation: aura-breathe-fast 2.1s ease-in-out infinite;
+  }
+
+  .aura-trace {
+    animation: aura-trace 3.8s ease-in-out infinite;
+    will-change: transform, opacity;
+  }
+
+  .message-grab {
+    cursor: grab;
+    transition:
+      transform 180ms ease,
+      filter 180ms ease,
+      box-shadow 180ms ease;
+    will-change: transform, filter;
+  }
+
+  .message-grab:hover {
+    filter: saturate(1.08);
+  }
+
+  .message-grab:active,
+  .message-grab--held {
+    cursor: grabbing;
+  }
+
   ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
@@ -708,6 +735,28 @@
   50% {
     transform: translateZ(0) scale(1.04);
     opacity: 1;
+  }
+}
+
+@keyframes aura-breathe-fast {
+  0%,
+  100% {
+    transform: translateZ(0) scale(0.96);
+    opacity: 0.72;
+  }
+  50% {
+    transform: translateZ(0) scale(1.08);
+    opacity: 1;
+  }
+}
+
+@keyframes aura-trace {
+  0%,
+  100% {
+    opacity: 0.22;
+  }
+  50% {
+    opacity: 0.5;
   }
 }
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useParams } from 'wouter';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LivingBackdrop } from '@/components/atmosphere/LivingBackdrop';
@@ -6,7 +6,7 @@ import { OrganismField } from '@/components/devether/OrganismField';
 import { ThoughtManifest } from '@/components/devether/ThoughtManifest';
 import { useSocketRift } from '@/hooks/use-socket';
 import { clearStoredRoomSession, getStoredRoomSession } from '@/lib/auth-session';
-import { formatClock } from '@/lib/sevenMinutes';
+import { formatClock, resolveDistinctRoomColors } from '@/lib/sevenMinutes';
 import { toast } from '@/hooks/use-toast';
 
 const RIFT_DURATION_SECONDS = 420;
@@ -89,6 +89,14 @@ export default function Rift() {
   const vibeLabel = describeVibe(vibe, temperature, isChaos);
   const visibleUsers = Object.values(users).filter((user) => !user.isRadio).length;
   const activeTypers = Object.values(users).filter((user) => user.isTyping && !user.isRadio).length;
+  const resolvedUserColors = useMemo(
+    () =>
+      resolveDistinctRoomColors(
+        Object.values(users).map((user) => ({ id: user.id, username: user.username, color: user.color })),
+      ),
+    [users],
+  );
+  const sessionVisualColor = session ? resolvedUserColors[session.userId] ?? session.color : vibe;
 
   useEffect(() => {
     document.title = `7MINUTES - ${topic}`;
@@ -172,6 +180,7 @@ export default function Rift() {
         users={users}
         fragments={fragments}
         ghostTrails={ghostTrails}
+        resolvedUserColors={resolvedUserColors}
       />
 
       <ThoughtManifest
@@ -252,8 +261,8 @@ export default function Rift() {
           <div
             className="h-2.5 w-2.5 rounded-full"
             style={{
-              background: session.color,
-              boxShadow: `0 0 16px ${session.color}`,
+              background: sessionVisualColor,
+              boxShadow: `0 0 16px ${sessionVisualColor}`,
               opacity: isGhostMode ? 0.5 : 0.9,
             }}
           />
@@ -266,9 +275,9 @@ export default function Rift() {
           }}
           className="pointer-events-auto control-button px-3 py-2 text-[10px] uppercase tracking-[0.24em]"
           style={{
-            borderColor: isGhostMode ? session.color : 'rgba(255,255,255,0.12)',
+            borderColor: isGhostMode ? sessionVisualColor : 'rgba(255,255,255,0.12)',
             color: isGhostMode ? '#ffffff' : 'rgba(255,255,255,0.74)',
-            boxShadow: isGhostMode ? `0 0 24px ${session.color}28` : undefined,
+            boxShadow: isGhostMode ? `0 0 24px ${sessionVisualColor}28` : undefined,
           }}
         >
           {isRadio ? 'radio' : isGhostMode ? 'ghost' : 'live'}

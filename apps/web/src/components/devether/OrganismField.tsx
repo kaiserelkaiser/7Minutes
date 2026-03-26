@@ -5,7 +5,9 @@ import {
   buildOrganicPath,
   clamp,
   hashString,
+  layoutOrganicNodes,
   messageAgeProgress,
+  resolveDistinctRoomColors,
 } from '@/lib/sevenMinutes';
 
 interface OrganismFieldProps {
@@ -15,6 +17,7 @@ interface OrganismFieldProps {
   users: Record<string, RiftUser>;
   fragments: Fragment[];
   ghostTrails: GhostTrail[];
+  resolvedUserColors?: Record<string, string>;
 }
 
 interface PositionedBlob {
@@ -28,6 +31,14 @@ interface PositionedBlob {
   age: number;
   driftDuration: number;
   driftDelay: number;
+  color: string;
+  isPinned: boolean;
+}
+
+interface DragState {
+  id: string;
+  offsetX: number;
+  offsetY: number;
 }
 
 function glitchText(content: string, stage: number) {
@@ -42,8 +53,18 @@ function glitchText(content: string, stage: number) {
     .join('');
 }
 
-export function OrganismField({ topic, vibeColor, messages, users, fragments, ghostTrails }: OrganismFieldProps) {
+export function OrganismField({
+  topic,
+  vibeColor,
+  messages,
+  users,
+  fragments,
+  ghostTrails,
+  resolvedUserColors,
+}: OrganismFieldProps) {
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
+  const [pinnedPositions, setPinnedPositions] = useState<Record<string, { x: number; y: number }>>({});
+  const [dragState, setDragState] = useState<DragState | null>(null);
 
   useEffect(() => {
     const measure = () => {
@@ -63,76 +84,176 @@ export function OrganismField({ topic, vibeColor, messages, users, fragments, gh
     [viewport.height, viewport.width],
   );
 
+  const roomColors = useMemo(
+    () =>
+      resolvedUserColors ??
+      resolveDistinctRoomColors(
+        Object.values(users).map((user) => ({ id: user.id, username: user.username, color: user.color })),
+      ),
+    [resolvedUserColors, users],
+  );
+
+  const recentActivity = useMemo(() => {
+    const activityMap: Record<string, number> = {};
+
+    messages.slice(-24).forEach((message) => {
+      const timestamp = new Date(message.createdAt).getTime();
+      activityMap[message.userId] = Math.max(activityMap[message.userId] ?? 0, timestamp);
+    });
+
+    fragments.slice(-12).forEach((fragment) => {
+      const timestamp = new Date(fragment.createdAt).getTime();
+      activityMap[fragment.userId] = Math.max(activityMap[fragment.userId] ?? 0, timestamp);
+    });
+
+    return activityMap;
+  }, [fragments, messages]);
+
   const visibleMessages = useMemo<PositionedBlob[]>(() => {
     const now = Date.now();
     const sample = messages.slice(-14);
 
-    return sample.map((message, index) => {
+    const rawNodes = sample.map((message) => {
       const hash = Math.abs(hashString(message.id));
       const age = messageAgeProgress(message.createdAt, message.expiresAt, now);
-      const angle = (hash % 360) * (Math.PI / 180) + index * 0.34;
-      const ring = 170 + (index % 5) * 58 + age * 30;
-      const width = clamp(132 + message.content.length * 1.6, 152, 292);
-      const height = clamp(88 + message.content.length * 0.65, 96, 176);
-      const x = center.x + Math.cos(angle) * ring;
-      const y = center.y + Math.sin(angle * 1.36) * ring * 0.38;
+      const width = clamp(132 + message.content.length * 1.5, 156, 286);
+      const height = clamp(90 + message.content.length * 0.56, 98, 170);
+      const color = roomColors[message.userId] ?? message.userColor;
+
+      return {
+        message,
+        width,
+        height,
+        age,
+        hash,
+        color,
+      };
+    });
+
+    const positions = layoutOrganicNodes({
+      center,
+      bounds: viewport,
+      radius: Math.min(viewport.width, viewport.height) * 0.16 + 130,
+      nodes: rawNodes.map((node) => ({
+        id: node.message.id,
+        seed: node.message.id,
+        width: node.width,
+        height: node.height,
+        age: node.age,
+        pinned: pinnedPositions[node.message.id] ?? null,
+      })),
+    });
+
+    return rawNodes.map((node) => {
+      const position = positions[node.message.id];
       const opacity =
-        message.decayStage === 4
+        node.message.decayStage === 4
           ? 0.14
-          : message.decayStage === 3
+          : node.message.decayStage === 3
             ? 0.38
-            : message.decayStage === 2
+            : node.message.decayStage === 2
               ? 0.64
-              : message.decayStage === 1
+              : node.message.decayStage === 1
                 ? 0.84
                 : 1;
 
       return {
-        message,
-        x,
-        y,
-        width,
-        height,
+        message: node.message,
+        x: position?.x ?? center.x,
+        y: position?.y ?? center.y,
+        width: node.width,
+        height: node.height,
         path: buildOrganicPath({
-          seed: message.id,
-          radiusX: width / 2.2,
-          radiusY: height / 2.1,
-          phase: (hash % 100) / 14,
-          sentiment: message.sentiment,
-          wobble: message.decayStage >= 3 ? 0.28 : 0.16,
+          seed: node.message.id,
+          radiusX: node.width / 2.2,
+          radiusY: node.height / 2.06,
+          phase: (node.hash % 100) / 14,
+          sentiment: node.message.sentiment,
+          wobble: node.message.decayStage >= 3 ? 0.26 : 0.14,
         }),
         opacity,
-        age,
-        driftDuration: 9 + (hash % 7),
-        driftDelay: (hash % 5) * -1.2,
+        age: node.age,
+        driftDuration: 9 + (node.hash % 7),
+        driftDelay: (node.hash % 5) * -1.2,
+        color: node.color,
+        isPinned: Boolean(pinnedPositions[node.message.id]),
       };
     });
-  }, [center.x, center.y, messages]);
+  }, [center, messages, pinnedPositions, roomColors, viewport]);
+
+  useEffect(() => {
+    const visibleIds = new Set(visibleMessages.map((blob) => blob.message.id));
+    setPinnedPositions((current) => {
+      const next = Object.fromEntries(
+        Object.entries(current).filter(([messageId]) => visibleIds.has(messageId)),
+      );
+      return Object.keys(next).length === Object.keys(current).length ? current : next;
+    });
+  }, [visibleMessages]);
+
+  useEffect(() => {
+    if (!dragState) return;
+
+    const handleMove = (event: PointerEvent) => {
+      setPinnedPositions((current) => ({
+        ...current,
+        [dragState.id]: {
+          x: clamp(event.clientX - dragState.offsetX, 96, viewport.width - 96),
+          y: clamp(event.clientY - dragState.offsetY, 92, viewport.height - 92),
+        },
+      }));
+    };
+
+    const handleUp = () => setDragState(null);
+
+    window.addEventListener('pointermove', handleMove);
+    window.addEventListener('pointerup', handleUp);
+
+    return () => {
+      window.removeEventListener('pointermove', handleMove);
+      window.removeEventListener('pointerup', handleUp);
+    };
+  }, [dragState, viewport.height, viewport.width]);
 
   const userFields = useMemo(() => {
     const activeUsers = Object.values(users).slice(0, 10);
+    const now = Date.now();
+
     return activeUsers.map((user, index) => {
-      const angle = index * (Math.PI * 2 / Math.max(1, activeUsers.length));
-      const radius = Math.min(viewport.width, viewport.height) * 0.34;
+      const angle = index * ((Math.PI * 2) / Math.max(1, activeUsers.length));
+      const radius = Math.min(viewport.width, viewport.height) * 0.33;
       const hash = Math.abs(hashString(user.id));
+      const lastActionAt = recentActivity[user.id] ?? 0;
+      const recentActionScore =
+        lastActionAt > 0 ? clamp(1 - (now - lastActionAt) / 8000, 0, 1) : 0;
+      const momentumScore = clamp(user.momentum / 100, 0, 1);
+      const actionEnergy = clamp(
+        recentActionScore * 0.9 + momentumScore * 0.7 + (user.isTyping ? 0.55 : 0),
+        0.18,
+        1.55,
+      );
+      const color = roomColors[user.id] ?? user.color;
+
       return {
         user,
+        color,
         x: center.x + Math.cos(angle) * radius,
         y: center.y + Math.sin(angle) * radius * 0.55,
         driftDuration: 11 + (hash % 5),
         driftDelay: (hash % 4) * -0.9,
+        actionEnergy,
       };
     });
-  }, [center.x, center.y, users, viewport.height, viewport.width]);
+  }, [center.x, center.y, recentActivity, roomColors, users, viewport.height, viewport.width]);
 
   const connectionPaths = useMemo(() => {
     const paths: Array<{ d: string; color: string; width: number; opacity: number }> = [];
     visibleMessages.forEach((blob, index) => {
       paths.push({
-        d: buildConnectionPath(center, { x: blob.x, y: blob.y }, ((index % 2 === 0 ? 1 : -1) * 54)),
-        color: blob.message.userColor,
+        d: buildConnectionPath(center, { x: blob.x, y: blob.y }, (index % 2 === 0 ? 1 : -1) * 54),
+        color: blob.color,
         width: blob.message.decayStage >= 3 ? 1 : 1.5,
-        opacity: blob.message.decayStage >= 3 ? 0.14 : 0.24,
+        opacity: blob.message.decayStage >= 3 ? 0.12 : blob.isPinned ? 0.32 : 0.22,
       });
 
       if (index > 0) {
@@ -141,11 +262,11 @@ export function OrganismField({ topic, vibeColor, messages, users, fragments, gh
           d: buildConnectionPath(
             { x: previous.x, y: previous.y },
             { x: blob.x, y: blob.y },
-            (index % 2 === 0 ? 1 : -1) * 28,
+            (index % 2 === 0 ? 1 : -1) * 24,
           ),
-          color: previous.message.userColor,
+          color: previous.color,
           width: 1,
-          opacity: 0.12,
+          opacity: 0.1,
         });
       }
     });
@@ -164,7 +285,7 @@ export function OrganismField({ topic, vibeColor, messages, users, fragments, gh
   );
 
   return (
-    <div className="absolute inset-0 overflow-hidden">
+    <div className="absolute inset-0 overflow-hidden" data-topic={topic}>
       <svg className="absolute inset-0 h-full w-full" aria-hidden="true">
         <defs>
           <radialGradient id="organism-core" cx="50%" cy="50%" r="50%">
@@ -239,10 +360,11 @@ export function OrganismField({ topic, vibeColor, messages, users, fragments, gh
         <circle cx={center.x} cy={center.y} r="18" fill="rgba(255,255,255,0.78)" />
       </svg>
 
-      <div className="pointer-events-none absolute inset-0">
+      <div className="absolute inset-0">
         {visibleMessages.map((blob, index) => {
-          const stageColor = blob.message.decayStage >= 3 ? 'transparent' : blob.message.userColor;
           const scrambled = glitchText(blob.message.content, blob.message.decayStage);
+          const isHeld = dragState?.id === blob.message.id;
+
           return (
             <div
               key={blob.message.id}
@@ -251,11 +373,43 @@ export function OrganismField({ topic, vibeColor, messages, users, fragments, gh
                 left: blob.x,
                 top: blob.y,
                 opacity: blob.opacity,
-                animation: `field-float ${blob.driftDuration}s ease-in-out ${blob.driftDelay}s infinite`,
+                zIndex: isHeld ? 60 : blob.isPinned ? 48 : 20 + index,
+                animation: blob.isPinned || isHeld ? 'none' : `field-float ${blob.driftDuration}s ease-in-out ${blob.driftDelay}s infinite`,
               }}
             >
               <div
-                className="relative"
+                role="button"
+                tabIndex={0}
+                onPointerDown={(event) => {
+                  setPinnedPositions((current) => ({
+                    ...current,
+                    [blob.message.id]: {
+                      x: blob.x,
+                      y: blob.y,
+                    },
+                  }));
+                  setDragState({
+                    id: blob.message.id,
+                    offsetX: event.clientX - blob.x,
+                    offsetY: event.clientY - blob.y,
+                  });
+                }}
+                onDoubleClick={() => {
+                  setPinnedPositions((current) => {
+                    const next = { ...current };
+                    delete next[blob.message.id];
+                    return next;
+                  });
+                }}
+                onKeyDown={(event) => {
+                  if (event.key !== 'Escape' && event.key !== 'Delete' && event.key !== 'Backspace') return;
+                  setPinnedPositions((current) => {
+                    const next = { ...current };
+                    delete next[blob.message.id];
+                    return next;
+                  });
+                }}
+                className={`message-grab relative ${blob.isPinned ? 'message-grab--held' : ''}`}
                 style={{
                   width: blob.width,
                   height: blob.height,
@@ -263,19 +417,22 @@ export function OrganismField({ topic, vibeColor, messages, users, fragments, gh
                   transform: blob.message.decayStage >= 4 ? 'scale(0.92)' : 'scale(1)',
                 }}
               >
-                <svg className="absolute inset-0 h-full w-full overflow-visible" viewBox={`-${blob.width / 2} -${blob.height / 2} ${blob.width} ${blob.height}`}>
+                <svg
+                  className="absolute inset-0 h-full w-full overflow-visible"
+                  viewBox={`-${blob.width / 2} -${blob.height / 2} ${blob.width} ${blob.height}`}
+                >
                   <path
                     d={blob.path}
-                    fill={blob.message.decayStage >= 3 ? 'rgba(255,255,255,0.04)' : stageColor}
-                    fillOpacity={blob.message.decayStage >= 3 ? 1 : 0.14}
-                    stroke={blob.message.userColor}
-                    strokeWidth={blob.message.decayStage >= 3 ? 1.8 : 1.3}
+                    fill={blob.message.decayStage >= 3 ? 'rgba(255,255,255,0.04)' : blob.color}
+                    fillOpacity={blob.message.decayStage >= 3 ? 1 : blob.isPinned ? 0.18 : 0.14}
+                    stroke={blob.color}
+                    strokeWidth={blob.message.decayStage >= 3 ? 1.8 : blob.isPinned ? 1.8 : 1.3}
                     filter="url(#field-glow)"
                   />
                 </svg>
 
-                <div className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center">
-                  <div className="font-mono text-[10px] uppercase tracking-[0.4em] text-white/40">
+                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-6 text-center">
+                  <div className="font-mono text-[10px] uppercase tracking-[0.34em] text-white/34">
                     {blob.message.username}
                   </div>
                   <div className="mt-3 max-w-[80%] text-sm leading-relaxed text-white/88 sm:text-base">
@@ -285,17 +442,17 @@ export function OrganismField({ topic, vibeColor, messages, users, fragments, gh
 
                 {(blob.message.decayStage >= 2 || blob.message.isBurst) &&
                   Array.from({ length: 5 }, (_, particleIndex) => {
-                    const particleAngle = particleIndex * (Math.PI * 2 / 5);
+                    const particleAngle = particleIndex * ((Math.PI * 2) / 5);
                     const orbit = blob.width * 0.26 + particleIndex * 6;
                     return (
                       <span
                         key={`${blob.message.id}-p-${particleIndex}`}
-                        className="absolute h-1.5 w-1.5 rounded-full"
+                        className="pointer-events-none absolute h-1.5 w-1.5 rounded-full"
                         style={{
                           left: blob.width / 2 + Math.cos(particleAngle) * orbit,
                           top: blob.height / 2 + Math.sin(particleAngle) * orbit * 0.55,
-                          background: blob.message.userColor,
-                          boxShadow: `0 0 12px ${blob.message.userColor}`,
+                          background: blob.color,
+                          boxShadow: `0 0 12px ${blob.color}`,
                           opacity: blob.message.decayStage >= 3 ? 0.2 : 0.55,
                           animation: `field-float ${7 + particleIndex}s ease-in-out ${particleIndex * -0.6}s infinite`,
                         }}
@@ -303,15 +460,14 @@ export function OrganismField({ topic, vibeColor, messages, users, fragments, gh
                     );
                   })}
 
-                {index % 2 === 0 && (
-                  <span
-                    className="absolute inset-0 rounded-[42%_58%_54%_46%/44%_38%_62%_56%]"
-                    style={{
-                      border: `1px solid ${blob.message.userColor}22`,
-                      transform: 'scale(1.04)',
-                    }}
-                  />
-                )}
+                <span
+                  className="pointer-events-none absolute inset-0 rounded-[42%_58%_54%_46%/44%_38%_62%_56%]"
+                  style={{
+                    border: `1px solid ${blob.color}${blob.isPinned ? '55' : '22'}`,
+                    transform: blob.isPinned ? 'scale(1.06)' : 'scale(1.03)',
+                    boxShadow: blob.isPinned ? `0 0 32px ${blob.color}26` : undefined,
+                  }}
+                />
               </div>
             </div>
           );
@@ -319,109 +475,114 @@ export function OrganismField({ topic, vibeColor, messages, users, fragments, gh
 
         {fragments.map((fragment, index) => {
           const hash = Math.abs(hashString(fragment.id));
+          const color = roomColors[fragment.userId] ?? fragment.userColor;
           const x = center.x + Math.cos((hash % 360) * (Math.PI / 180)) * (220 + index * 22);
           const y = center.y + Math.sin(((hash % 360) * 1.2) * (Math.PI / 180)) * 116;
           return (
             <div
               key={fragment.id}
-              className="absolute -translate-x-1/2 -translate-y-1/2 text-center"
+              className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 text-center"
               style={{
                 left: x,
                 top: y,
                 animation: `field-float ${10 + (hash % 4)}s ease-in-out ${(hash % 5) * -0.8}s infinite`,
               }}
             >
-              <div className="text-4xl text-white/35 drop-shadow-[0_0_22px_rgba(255,255,255,0.25)]">?</div>
-              <div className="mt-2 max-w-[160px] text-xs leading-relaxed text-white/50">
+              <div className="text-4xl drop-shadow-[0_0_22px_rgba(255,255,255,0.25)]" style={{ color }}>
+                ?
+              </div>
+              <div className="mt-2 max-w-[160px] text-xs leading-relaxed text-white/44">
                 {fragment.content}
               </div>
             </div>
           );
         })}
 
-        {userFields.map(({ user, x, y, driftDuration, driftDelay }) => (
+        {userFields.map(({ user, color, x, y, driftDuration, driftDelay, actionEnergy }) => (
           <div
             key={user.id}
-            className="absolute -translate-x-1/2 -translate-y-1/2 text-center"
+            className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 text-center"
             style={{
               left: x,
               top: y,
               animation: `field-float ${driftDuration}s ease-in-out ${driftDelay}s infinite`,
             }}
           >
-            <div
-              className="absolute -inset-8 rounded-full aura-breathe"
+            <span
+              className="absolute left-1/2 top-1/2 h-14 w-24 -translate-x-1/2 -translate-y-1/2 rounded-full aura-trace"
               style={{
-                background: `radial-gradient(circle, ${user.color}22 0%, transparent 72%)`,
-                opacity: user.isGhost ? 0.16 : 0.5,
-                filter: 'blur(10px)',
+                background: `linear-gradient(90deg, transparent 0%, ${color}22 45%, transparent 100%)`,
+                filter: 'blur(8px)',
+                opacity: user.isGhost ? 0.08 : 0.24 + actionEnergy * 0.16,
+                transform: `translate(-50%, -50%) rotate(${Math.round((x - center.x) * 0.06)}deg)`,
+              }}
+            />
+            <div
+              className="absolute rounded-full aura-breathe"
+              style={{
+                inset: `${-18 - actionEnergy * 8}px`,
+                background: `radial-gradient(circle, ${color}28 0%, transparent 74%)`,
+                opacity: user.isGhost ? 0.12 : 0.28 + actionEnergy * 0.18,
+                filter: 'blur(14px)',
                 animationDelay: `${driftDelay}s`,
               }}
             />
             <div
-              className="relative rounded-full aura-breathe"
+              className={`relative rounded-full ${user.isTyping ? 'aura-breathe-fast' : 'aura-breathe'}`}
               style={{
-                width: 28 + user.momentum * 0.18,
-                height: 28 + user.momentum * 0.18,
-                border: `1px solid ${user.color}`,
-                boxShadow: `0 0 28px ${user.color}`,
-                opacity: user.isGhost ? 0.28 : 0.76,
-                background: `radial-gradient(circle, ${user.color}55 0%, transparent 70%)`,
+                width: 26 + actionEnergy * 12,
+                height: 26 + actionEnergy * 12,
+                border: `1px solid ${color}`,
+                boxShadow: `0 0 ${28 + actionEnergy * 22}px ${color}`,
+                opacity: user.isGhost ? 0.24 : 0.76,
+                background: `radial-gradient(circle, ${color}${user.isGhost ? '22' : '66'} 0%, transparent 72%)`,
                 animationDelay: `${driftDelay}s`,
               }}
             >
               <span
-                className="absolute inset-[-9px] rounded-full aura-breathe"
+                className="absolute rounded-full aura-breathe"
                 style={{
-                  border: `1px solid ${user.color}`,
-                  opacity: user.isGhost ? 0.16 : 0.22,
-                  animationDuration: '5.8s',
-                  animationDelay: `${driftDelay - 0.7}s`,
+                  inset: `${-10 - actionEnergy * 4}px`,
+                  border: `1px solid ${color}`,
+                  opacity: user.isGhost ? 0.1 : 0.18 + actionEnergy * 0.14,
+                  animationDuration: '5.4s',
+                  animationDelay: `${driftDelay - 0.6}s`,
                 }}
               />
-              {user.isTyping && (
-                <>
-                  <span
-                    className="absolute inset-[-6px] rounded-full aura-breathe"
-                    style={{
-                      border: `1px solid ${user.color}`,
-                      opacity: 0.5,
-                      animationDuration: '2s',
-                      animationDelay: `${driftDelay}s`,
-                    }}
-                  />
-                  <span
-                    className="absolute inset-[-14px] rounded-full aura-breathe"
-                    style={{
-                      border: `1px solid ${user.color}`,
-                      opacity: 0.22,
-                      animationDuration: '2.6s',
-                      animationDelay: `${driftDelay - 0.4}s`,
-                    }}
-                  />
-                </>
-              )}
+              <span
+                className={`absolute rounded-full ${user.isTyping ? 'aura-breathe-fast' : 'aura-breathe'}`}
+                style={{
+                  inset: `${-20 - actionEnergy * 7}px`,
+                  border: `1px solid ${color}`,
+                  opacity: user.isGhost ? 0.06 : 0.1 + actionEnergy * 0.12,
+                  animationDuration: user.isTyping ? '2s' : '6.2s',
+                  animationDelay: `${driftDelay - 1.1}s`,
+                }}
+              />
             </div>
-            <div className="mt-2 font-mono text-[10px] uppercase tracking-[0.28em] text-white/35">
+            <div className="mt-2 font-mono text-[10px] uppercase tracking-[0.26em] text-white/32">
               {user.username}
             </div>
           </div>
         ))}
 
-        {ghostTrails.slice(-3).map((trail, index) => (
-          <div
-            key={`${trail.userId}-${trail.leftAt}`}
-            className="absolute text-[10px] uppercase tracking-[0.2em] text-white/18"
-            style={{
-              left: `${10 + (index % 3) * 22}%`,
-              top: `${12 + Math.floor(index / 3) * 8}%`,
-            }}
-          >
-            <div className="font-mono" style={{ color: trail.color }}>
-              {trail.username} faded
+        {ghostTrails.slice(-3).map((trail, index) => {
+          const color = roomColors[trail.userId] ?? trail.color;
+          return (
+            <div
+              key={`${trail.userId}-${trail.leftAt}`}
+              className="pointer-events-none absolute text-[10px] uppercase tracking-[0.2em] text-white/18"
+              style={{
+                left: `${10 + (index % 3) * 22}%`,
+                top: `${12 + Math.floor(index / 3) * 8}%`,
+              }}
+            >
+              <div className="font-mono" style={{ color }}>
+                {trail.username} faded
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
