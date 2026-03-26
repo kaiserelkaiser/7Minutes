@@ -67,6 +67,10 @@ export async function ensureMongoIndexes(): Promise<void> {
       { key: { userId: 1, viewed: 1, createdAt: -1 }, name: "room_echoes_user_viewed_created_at" },
       { key: { expiresAt: 1 }, expireAfterSeconds: 0, name: "room_echoes_expires_at_ttl" },
     ]),
+    ensureCollectionIndexes(db, "roomArchives", [
+      { key: { type: 1, closedAt: -1 }, name: "room_archives_type_closed_at" },
+      { key: { roomId: 1 }, unique: true, name: "room_archives_room_id_unique" },
+    ]),
   ]);
 
   logger.info("MongoDB indexes ensured");

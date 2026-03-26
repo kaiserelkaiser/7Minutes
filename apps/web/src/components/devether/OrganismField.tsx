@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type { Fragment, GhostTrail, RiftMessage, RiftUser } from '@/hooks/use-socket';
 import {
   buildConnectionPath,
@@ -12,6 +12,7 @@ import {
 
 interface OrganismFieldProps {
   topic: string;
+  roomType?: 'standard' | 'quantum' | 'context';
   vibeColor: string;
   temperature: number;
   activeTypers: number;
@@ -44,6 +45,14 @@ interface DragState {
   offsetY: number;
 }
 
+interface MessageExplosion {
+  id: string;
+  x: number;
+  y: number;
+  color: string;
+  intensity: number;
+}
+
 function glitchText(content: string, stage: number) {
   if (stage < 3) return content;
   const glyphs = ['#', '?', '*', '~', '/'];
@@ -58,6 +67,7 @@ function glitchText(content: string, stage: number) {
 
 export function OrganismField({
   topic,
+  roomType = 'standard',
   vibeColor,
   temperature,
   activeTypers,
@@ -71,6 +81,8 @@ export function OrganismField({
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
   const [pinnedPositions, setPinnedPositions] = useState<Record<string, { x: number; y: number }>>({});
   const [dragState, setDragState] = useState<DragState | null>(null);
+  const [explosions, setExplosions] = useState<MessageExplosion[]>([]);
+  const previousBlobsRef = useRef<Record<string, PositionedBlob>>({});
 
   useEffect(() => {
     const measure = () => {
@@ -98,7 +110,8 @@ export function OrganismField({
       ),
     [resolvedUserColors, users],
   );
-  const heatRatio = clamp(temperature / 100, 0, 1);
+  const isContextRoom = roomType === 'context';
+  const heatRatio = clamp(temperature / (isContextRoom ? 120 : 100), 0, 1);
   const conversationState = isChaos ? 'intense' : heatRatio > 0.62 || activeTypers > 2 ? 'active' : 'calm';
 
   const recentActivity = useMemo(() => {
@@ -197,6 +210,35 @@ export function OrganismField({
       );
       return Object.keys(next).length === Object.keys(current).length ? current : next;
     });
+  }, [visibleMessages]);
+
+  useEffect(() => {
+    const previousBlobs = previousBlobsRef.current;
+    const nextBlobs = visibleMessages.reduce<Record<string, PositionedBlob>>((result, blob) => {
+      result[blob.message.id] = blob;
+      return result;
+    }, {});
+
+    const expiredBursts = Object.values(previousBlobs)
+      .filter((blob) => !nextBlobs[blob.message.id])
+      .map((blob) => ({
+        id: `${blob.message.id}-${Date.now()}`,
+        x: blob.x,
+        y: blob.y,
+        color: blob.color,
+        intensity: blob.message.isBurst ? 1.2 : blob.message.decayStage >= 3 ? 1 : 0.82,
+      }));
+
+    if (expiredBursts.length > 0) {
+      setExplosions((current) => [...current, ...expiredBursts].slice(-16));
+      expiredBursts.forEach((burst) => {
+        window.setTimeout(() => {
+          setExplosions((current) => current.filter((item) => item.id !== burst.id));
+        }, 920);
+      });
+    }
+
+    previousBlobsRef.current = nextBlobs;
   }, [visibleMessages]);
 
   useEffect(() => {
@@ -352,7 +394,7 @@ export function OrganismField({
           rx={Math.min(viewport.width, viewport.height) * (0.24 + heatRatio * 0.07)}
           ry={Math.min(viewport.width, viewport.height) * (0.1 + heatRatio * 0.04)}
           fill={isChaos ? '#ff1493' : vibeColor}
-          fillOpacity={0.04 + heatRatio * 0.08}
+          fillOpacity={(isContextRoom ? 0.028 : 0.04) + heatRatio * (isContextRoom ? 0.05 : 0.08)}
           filter="url(#field-glow)"
           className={isChaos ? 'vibe-morph-fast' : conversationState === 'active' ? 'vibe-morph-medium' : 'vibe-morph-slow'}
           style={{ transformOrigin: `${center.x}px ${center.y}px` }}
@@ -376,7 +418,7 @@ export function OrganismField({
             ry={band.radiusY}
             fill="none"
             stroke={vibeColor}
-            strokeOpacity={band.opacity}
+            strokeOpacity={isContextRoom ? band.opacity * 0.72 : band.opacity}
             strokeDasharray={band.dash}
             strokeWidth={index === 0 ? 1.4 : 1}
             className={index % 2 === 0 ? 'field-rotate-slow' : 'field-rotate-fast'}
@@ -630,6 +672,41 @@ export function OrganismField({
                 }}
               />
             </div>
+          </div>
+        ))}
+
+        {explosions.map((burst) => (
+          <div
+            key={burst.id}
+            className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2"
+            style={{ left: burst.x, top: burst.y }}
+          >
+            <span
+              className="message-explosion-core"
+              style={{
+                background: burst.color,
+                boxShadow: `0 0 36px ${burst.color}`,
+                transform: `scale(${burst.intensity})`,
+              }}
+            />
+            {Array.from({ length: 12 }, (_, index) => {
+              const angle = (index / 12) * Math.PI * 2;
+              const distance = 44 + burst.intensity * 18 + (index % 3) * 10;
+              return (
+                <span
+                  key={`${burst.id}-${index}`}
+                  className="message-explosion-particle"
+                  style={
+                    {
+                      '--burst-x': `${Math.cos(angle) * distance}px`,
+                      '--burst-y': `${Math.sin(angle) * distance}px`,
+                      '--burst-color': burst.color,
+                      '--burst-delay': `${index * 18}ms`,
+                    } as CSSProperties
+                  }
+                />
+              );
+            })}
           </div>
         ))}
 

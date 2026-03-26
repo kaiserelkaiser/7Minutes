@@ -25,6 +25,7 @@ import {
 } from "./riftManager";
 import { verifyRiftSessionToken } from "./auth";
 import {
+  deletePersistedMessage,
   finalizeClosedRoom,
   recordMessage,
   recordResonance,
@@ -61,6 +62,7 @@ function scheduleDecayStages(
 
   setTimeout(() => {
     io.to(riftId).emit("message-faded", { messageId: msgId });
+    void deletePersistedMessage(msgId);
   }, expireMs);
 }
 
@@ -84,6 +86,12 @@ function ensureRiftSchedule(io: IOServer, riftId: string): void {
   const warningAt = Math.max(0, timeLeft - 60000);
   const lastWordAt = Math.max(0, timeLeft - 30000);
 
+  if (rift.type === "context") {
+    schedule.catalyst = scheduleNextCatalyst(io, riftId);
+    riftSchedules.set(riftId, schedule);
+    return;
+  }
+
   schedule.closing = setTimeout(() => {
     if (getRiftById(riftId)) {
       io.to(riftId).emit("rift-closing", { timeLeft: 60000 });
@@ -104,6 +112,8 @@ function ensureRiftSchedule(io: IOServer, riftId: string): void {
       void finalizeClosedRoom({
         roomId: currentRift.id,
         topic: currentRift.revealedTopic ?? currentRift.topic,
+        type: currentRift.type,
+        createdAt: currentRift.createdAt,
         participantIds: participants.map((participant) => participant.userId),
         participantNames: participants.map((participant) => participant.username),
         peakUsers: currentRift.peakUsers,
@@ -281,7 +291,7 @@ function syncPersistedRift(riftId: string): void {
   void syncRoomSnapshot({
     id: rift.id,
     topic: rift.revealedTopic ?? rift.topic,
-    type: rift.isQuantum ? "quantum" : "standard",
+    type: rift.type,
     activeUsers: rift.users.size,
     temperature: rift.temperature,
     vibe: rift.vibeColor,
@@ -416,6 +426,7 @@ export function setupSocketHandlers(io: IOServer): void {
         burstUsed: user.burstUsed,
       });
       void recordMessage({
+        messageId: msg.id,
         roomId: riftId,
         userId,
         username: user.username,
@@ -577,6 +588,7 @@ export function setupSocketHandlers(io: IOServer): void {
         isChaosMode: rift.isChaosMode,
       });
       void recordMessage({
+        messageId: msg.id,
         roomId: riftId,
         userId,
         username: msg.username,

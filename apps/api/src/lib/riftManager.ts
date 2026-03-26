@@ -1,5 +1,7 @@
 import { logger } from "./logger";
 
+export type RiftType = "standard" | "quantum" | "context";
+
 export interface RiftUser {
   id: string;
   username: string;
@@ -72,6 +74,8 @@ export interface ResonanceChain {
 export interface RiftClosureSnapshot {
   roomId: string;
   topic: string;
+  type: RiftType;
+  createdAt: Date;
   participantIds: string[];
   participantNames: string[];
   peakUsers: number;
@@ -92,6 +96,7 @@ export interface RemoveUserResult {
 
 export interface Rift {
   id: string;
+  type: RiftType;
   topic: string;
   isQuantum: boolean;
   revealedTopic: string | null;
@@ -119,6 +124,7 @@ export interface Rift {
 }
 
 const RIFT_DURATION_MS = 7 * 60 * 1000;
+const CONTEXT_RIFT_DURATION_MS = 365 * 24 * 60 * 60 * 1000;
 const MESSAGE_FADE_START_NORMAL_MS = 3 * 60 * 1000;
 const MESSAGE_FADE_START_CHAOS_MS = 2 * 60 * 1000;
 const MESSAGE_EXPIRE_NORMAL_MS = 7 * 60 * 1000;
@@ -253,7 +259,7 @@ export function getActiveRifts(): Rift[] {
   const active: Rift[] = [];
   for (const rift of rifts.values()) {
     pruneRift(rift);
-    if (rift.expiresAt > now) {
+    if (rift.type === "context" || rift.expiresAt > now) {
       active.push(rift);
     } else {
       rifts.delete(rift.id);
@@ -266,30 +272,46 @@ export function getRiftById(riftId: string): Rift | undefined {
   const rift = rifts.get(riftId);
   if (!rift) return undefined;
   pruneRift(rift);
-  if (rift.expiresAt <= new Date()) {
+  if (rift.type !== "context" && rift.expiresAt <= new Date()) {
     rifts.delete(riftId);
     return undefined;
   }
   return rift;
 }
 
-export function findOrCreateRift(topic: string, riftId?: string, quantum?: boolean): Rift | null {
+export function findOrCreateRift(
+  topic: string,
+  riftId?: string,
+  quantum?: boolean,
+  type: RiftType = quantum ? "quantum" : "standard",
+): Rift | null {
   if (riftId) {
     const existing = rifts.get(riftId);
-    if (existing && existing.expiresAt > new Date() && existing.users.size < MAX_USERS_PER_RIFT) {
+    if (
+      existing &&
+      (existing.type === "context" || existing.expiresAt > new Date()) &&
+      existing.users.size < MAX_USERS_PER_RIFT &&
+      existing.type === type
+    ) {
       return existing;
     }
   }
   for (const rift of rifts.values()) {
-    if (rift.topic === topic && rift.expiresAt > new Date() && rift.users.size < MAX_USERS_PER_RIFT) {
+    if (
+      rift.topic === topic &&
+      rift.type === type &&
+      (rift.type === "context" || rift.expiresAt > new Date()) &&
+      rift.users.size < MAX_USERS_PER_RIFT
+    ) {
       return rift;
     }
   }
   const now = new Date();
-  const isQuantum = !!quantum;
+  const isQuantum = type === "quantum";
   const revealedTopic = isQuantum ? null : topic;
   const newRift: Rift = {
     id: riftId?.trim() || generateId(),
+    type,
     topic: isQuantum ? "???" : topic,
     isQuantum,
     revealedTopic,
@@ -301,7 +323,7 @@ export function findOrCreateRift(topic: string, riftId?: string, quantum?: boole
     fragments: [],
     ghostTrails: [],
     createdAt: now,
-    expiresAt: new Date(now.getTime() + RIFT_DURATION_MS),
+    expiresAt: new Date(now.getTime() + (type === "context" ? CONTEXT_RIFT_DURATION_MS : RIFT_DURATION_MS)),
     vibeColor: "#00ffff",
     temperature: 0,
     isChaosMode: false,
@@ -320,7 +342,7 @@ export function findOrCreateRift(topic: string, riftId?: string, quantum?: boole
     newRift.revealedTopic = randomTopic;
   }
   rifts.set(newRift.id, newRift);
-  logger.info({ riftId: newRift.id, topic, isQuantum }, "New rift created");
+  logger.info({ riftId: newRift.id, topic, isQuantum, type }, "New rift created");
   return newRift;
 }
 
@@ -404,6 +426,8 @@ export function removeUserFromRift(riftId: string, userId: string): RemoveUserRe
     closedSnapshot = {
       roomId: rift.id,
       topic: rift.revealedTopic ?? rift.topic,
+      type: rift.type,
+      createdAt: rift.createdAt,
       participantIds: Array.from(rift.participantLedger.keys()),
       participantNames: Array.from(rift.participantLedger.values()).map((participant) => participant.username),
       peakUsers: rift.peakUsers,
@@ -577,12 +601,16 @@ export function getPresenceRoster() {
   const now = Date.now();
   return getActiveRifts().map((rift) => ({
     roomId: rift.id,
+    type: rift.type,
     topic: rift.revealedTopic ?? rift.topic,
     userCount: rift.users.size,
     maxUsers: MAX_USERS_PER_RIFT,
     temperature: rift.temperature,
     vibeColor: rift.vibeColor,
-    timeLeftSeconds: Math.max(0, Math.floor((rift.expiresAt.getTime() - now) / 1000)),
+    timeLeftSeconds:
+      rift.type === "context"
+        ? -1
+        : Math.max(0, Math.floor((rift.expiresAt.getTime() - now) / 1000)),
     users: Array.from(rift.users.values())
       .filter((user) => !user.isRadio)
       .map((user) => ({
@@ -619,6 +647,7 @@ export function useBurst(riftId: string, userId: string): boolean {
 export function serializeRift(rift: Rift) {
   return {
     id: rift.id,
+    type: rift.type,
     topic: rift.revealedTopic ?? rift.topic,
     isQuantum: rift.isQuantum,
     revealedTopic: rift.revealedTopic,
@@ -626,6 +655,7 @@ export function serializeRift(rift: Rift) {
     maxUsers: MAX_USERS_PER_RIFT,
     createdAt: rift.createdAt.toISOString(),
     expiresAt: rift.expiresAt.toISOString(),
+    persistsUntilEmpty: rift.type === "context",
     vibeColor: rift.vibeColor,
     temperature: rift.temperature,
     isChaosMode: rift.isChaosMode,

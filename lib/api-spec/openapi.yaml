@@ -355,7 +355,15 @@ components:
           type: string
         topic:
           type: string
+        type:
+          type: string
+          enum:
+            - standard
+            - quantum
+            - context
         isQuantum:
+          type: boolean
+        persistsUntilEmpty:
           type: boolean
         userCount:
           type: integer
@@ -376,7 +384,9 @@ components:
       required:
         - id
         - topic
+        - type
         - isQuantum
+        - persistsUntilEmpty
         - userCount
         - maxUsers
         - createdAt
@@ -477,6 +487,11 @@ components:
           type: string
         quantum:
           type: boolean
+        mode:
+          type: string
+          enum:
+            - standard
+            - context
         asRadio:
           type: boolean
       required:

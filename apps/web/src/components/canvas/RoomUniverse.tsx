@@ -4,24 +4,27 @@ import { clamp, hashString } from '@/lib/sevenMinutes';
 export interface UniverseRoom {
   id: string;
   topic: string;
+  type: 'standard' | 'quantum' | 'context';
   userCount: number;
   maxUsers: number;
   vibeColor: string;
   temperature: number;
   isChaosMode: boolean;
   isQuantum: boolean;
+  persistsUntilEmpty: boolean;
 }
 
 interface RoomUniverseProps {
   rooms: UniverseRoom[];
   hoveredRoomId: string | null;
   onHover: (roomId: string | null) => void;
-  onSelect: (roomId: string, topic: string) => void;
+  onSelect: (roomId: string, topic: string, mode: 'standard' | 'quantum' | 'context') => void;
 }
 
 interface PlanetHitZone {
   roomId: string;
   topic: string;
+  mode: 'standard' | 'quantum' | 'context';
   x: number;
   y: number;
   radius: number;
@@ -135,6 +138,7 @@ export function RoomUniverse({ rooms, hoveredRoomId, onHover, onSelect }: RoomUn
         const radius = clamp(20 + room.userCount * 3.2 + room.temperature * 0.08, 28, 72) * pulse;
         const [red, green, blue] = hexToRgb(room.vibeColor);
         const hovered = hoveredRef.current === room.id;
+        const contextRoom = room.type === 'context';
 
         const atmosphere = context.createRadialGradient(planetX, planetY, 0, planetX, planetY, radius * 3.4);
         atmosphere.addColorStop(0, `rgba(${red}, ${green}, ${blue}, ${room.isChaosMode ? 0.42 : 0.26})`);
@@ -169,6 +173,16 @@ export function RoomUniverse({ rooms, hoveredRoomId, onHover, onSelect }: RoomUn
         context.fillStyle = sphere;
         context.fill();
 
+        if (contextRoom) {
+          context.beginPath();
+          context.lineWidth = hovered ? 2.8 : 1.6;
+          context.strokeStyle = hovered
+            ? 'rgba(123, 246, 209, 0.92)'
+            : 'rgba(123, 246, 209, 0.5)';
+          context.arc(planetX, planetY, radius * 1.34 + Math.sin(now * 1.6 + index) * 2, 0, Math.PI * 2);
+          context.stroke();
+        }
+
         if (room.isChaosMode || room.temperature > 52) {
           context.beginPath();
           context.lineWidth = 1.6;
@@ -197,17 +211,30 @@ export function RoomUniverse({ rooms, hoveredRoomId, onHover, onSelect }: RoomUn
           context.textAlign = 'center';
           context.font = '600 12px "JetBrains Mono", monospace';
           context.fillStyle = 'rgba(245, 248, 255, 0.95)';
-          context.fillText(room.isQuantum ? 'quantum room' : room.topic, planetX, planetY - radius - 26);
-          context.font = '500 11px "Space Grotesk", sans-serif';
-          context.fillStyle = `rgba(${red}, ${green}, ${blue}, 0.95)`;
           context.fillText(
-            `${room.userCount}/${room.maxUsers} minds  |  heat ${Math.round(room.temperature)}`,
+            room.type === 'context' ? 'context room' : room.isQuantum ? 'quantum room' : room.topic,
+            planetX,
+            planetY - radius - 26,
+          );
+          context.font = '500 11px "Space Grotesk", sans-serif';
+          context.fillStyle = contextRoom ? 'rgba(123, 246, 209, 0.95)' : `rgba(${red}, ${green}, ${blue}, 0.95)`;
+          context.fillText(
+            contextRoom
+              ? `${room.userCount}/${room.maxUsers} minds  |  open until empty`
+              : `${room.userCount}/${room.maxUsers} minds  |  heat ${Math.round(room.temperature)}`,
             planetX,
             planetY - radius - 10,
           );
         }
 
-        hitZonesRef.current.push({ roomId: room.id, topic: room.topic, x: planetX, y: planetY, radius: radius * 1.2 });
+        hitZonesRef.current.push({
+          roomId: room.id,
+          topic: room.topic,
+          mode: room.type,
+          x: planetX,
+          y: planetY,
+          radius: radius * 1.2,
+        });
       });
 
       context.beginPath();
@@ -273,7 +300,7 @@ export function RoomUniverse({ rooms, hoveredRoomId, onHover, onSelect }: RoomUn
     });
 
     if (hit) {
-      onSelect(hit.roomId, hit.topic);
+      onSelect(hit.roomId, hit.topic, hit.mode);
     }
   }, [onSelect]);
 

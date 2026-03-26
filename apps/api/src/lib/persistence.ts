@@ -48,7 +48,7 @@ type InviteDocument = {
 
 type RoomDocument = {
   topic: string;
-  type: "standard" | "quantum" | "void" | "duel";
+  type: "standard" | "quantum" | "void" | "duel" | "context";
   activeUsers: number;
   temperature: number;
   vibe: string;
@@ -63,6 +63,7 @@ type RoomDocument = {
 type RoomRecord = RoomDocument & { _id: string };
 
 type MessageDocument = {
+  messageId: string;
   roomId: string;
   userId: string;
   username: string;
@@ -71,6 +72,20 @@ type MessageDocument = {
   createdAt: Date;
   expiresAt: Date;
   isBurst: boolean;
+};
+
+type RoomArchiveDocument = {
+  roomId: string;
+  topic: string;
+  type: "standard" | "quantum" | "void" | "duel" | "context";
+  createdAt: Date;
+  closedAt: Date;
+  peakUsers: number;
+  totalMessages: number;
+  vibeColor: string;
+  temperature: number;
+  participantCount: number;
+  catalystCount: number;
 };
 
 type MemoryDocument = {
@@ -334,7 +349,7 @@ export type ScheduledRoomView = {
 export type RuntimeRiftSnapshot = {
   id: string;
   topic: string;
-  type: "standard" | "quantum" | "void" | "duel";
+  type: "standard" | "quantum" | "void" | "duel" | "context";
   activeUsers: number;
   temperature: number;
   vibe: string;
@@ -346,6 +361,7 @@ export type RuntimeRiftSnapshot = {
 };
 
 export type RuntimeMessageSnapshot = {
+  messageId: string;
   roomId: string;
   userId: string;
   username: string;
@@ -359,6 +375,8 @@ export type RuntimeMessageSnapshot = {
 export type RoomClosureSnapshot = {
   roomId: string;
   topic: string;
+  type: "standard" | "quantum" | "void" | "duel" | "context";
+  createdAt?: Date;
   participantIds: string[];
   participantNames: string[];
   peakUsers: number;
@@ -374,6 +392,7 @@ export type RoomClosureSnapshot = {
 
 export type PresenceRoomSnapshot = {
   roomId: string;
+  type: "standard" | "quantum" | "context";
   topic: string;
   userCount: number;
   maxUsers: number;
@@ -956,6 +975,7 @@ export async function recordMessage(message: RuntimeMessageSnapshot): Promise<vo
   if (!db) return;
 
   await db.collection<MessageDocument>("messages").insertOne({
+    messageId: message.messageId,
     roomId: message.roomId,
     userId: message.userId,
     username: message.username,
@@ -967,9 +987,55 @@ export async function recordMessage(message: RuntimeMessageSnapshot): Promise<vo
   });
 }
 
+export async function deletePersistedMessage(messageId: string): Promise<void> {
+  const db = await getMongoDb();
+  if (!db) return;
+
+  await db.collection<MessageDocument>("messages").deleteOne({ messageId });
+}
+
+export async function archiveClosedContextRoom(snapshot: RoomClosureSnapshot): Promise<void> {
+  const db = await getMongoDb();
+  if (!db) return;
+
+  const closedAt = new Date();
+  await db.collection<RoomArchiveDocument>("roomArchives").insertOne({
+    roomId: snapshot.roomId,
+    topic: snapshot.topic,
+    type: snapshot.type,
+    createdAt: snapshot.createdAt ?? closedAt,
+    closedAt,
+    peakUsers: snapshot.peakUsers,
+    totalMessages: snapshot.totalMessages,
+    vibeColor: snapshot.vibeColor,
+    temperature: snapshot.temperature,
+    participantCount: snapshot.participantNames.length,
+    catalystCount: snapshot.catalystHistory.length,
+  });
+
+  await purgeRoomData(snapshot.roomId);
+}
+
+export async function purgeRoomData(roomId: string): Promise<void> {
+  const db = await getMongoDb();
+  if (!db) return;
+
+  await Promise.all([
+    db.collection<MessageDocument>("messages").deleteMany({ roomId }),
+    db.collection<RoomRecord>("rooms").deleteOne({ _id: roomId }),
+    db.collection<HighlightReelDocument>("highlightReels").deleteMany({ roomId }),
+    db.collection<RoomEchoDocument>("roomEchoes").deleteMany({ roomId }),
+  ]);
+}
+
 export async function finalizeClosedRoom(snapshot: RoomClosureSnapshot): Promise<void> {
   const db = await getMongoDb();
   if (!db) return;
+
+  if (snapshot.type === "context") {
+    await archiveClosedContextRoom(snapshot);
+    return;
+  }
 
   await db.collection<RoomRecord>("rooms").updateOne(
     { _id: snapshot.roomId },

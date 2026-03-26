@@ -9,6 +9,7 @@ import {
   findOrCreateRift,
   getActiveRifts,
   MAX_USERS_PER_RIFT,
+  type RiftType,
 } from "../lib/riftManager";
 import { signRiftSessionToken } from "../lib/auth";
 import { recordRoomJoin, syncRoomSnapshot } from "../lib/persistence";
@@ -23,7 +24,9 @@ router.get("/rifts", (_req, res) => {
     rifts: activeRifts.map(r => ({
       id: r.id,
       topic: r.topic,
+      type: r.type,
       isQuantum: r.isQuantum,
+      persistsUntilEmpty: r.type === "context",
       userCount: r.users.size,
       maxUsers: MAX_USERS_PER_RIFT,
       createdAt: r.createdAt,
@@ -43,7 +46,7 @@ router.post("/rifts/join", (req, res) => {
     return;
   }
 
-  const { username, topic, riftId, quantum, asRadio } = parseResult.data;
+  const { username, topic, riftId, quantum, asRadio, mode } = parseResult.data;
   const authUser = req.auth;
   const trimmedUsername = (authUser?.username ?? username ?? "").trim().slice(0, MAX_USERNAME_LENGTH);
   const trimmedTopic = (topic || "").trim().slice(0, MAX_TOPIC_LENGTH);
@@ -58,7 +61,8 @@ router.post("/rifts/join", (req, res) => {
     return;
   }
 
-  const rift = findOrCreateRift(trimmedTopic, riftId, !!quantum);
+  const requestedType: RiftType = mode === "context" ? "context" : quantum ? "quantum" : "standard";
+  const rift = findOrCreateRift(trimmedTopic, riftId, !!quantum, requestedType);
   if (!rift) {
     res.status(400).json({ error: "No available rifts for this topic" });
     return;
@@ -75,7 +79,7 @@ router.post("/rifts/join", (req, res) => {
   void syncRoomSnapshot({
     id: rift.id,
     topic: rift.revealedTopic ?? rift.topic,
-    type: rift.isQuantum ? "quantum" : "standard",
+    type: rift.type,
     activeUsers: rift.users.size,
     temperature: rift.temperature,
     vibe: rift.vibeColor,
@@ -101,7 +105,9 @@ router.post("/rifts/join", (req, res) => {
     rift: {
       id: rift.id,
       topic: rift.topic,
+      type: rift.type,
       isQuantum: rift.isQuantum,
+      persistsUntilEmpty: rift.type === "context",
       userCount: rift.users.size,
       maxUsers: MAX_USERS_PER_RIFT,
       createdAt: rift.createdAt,

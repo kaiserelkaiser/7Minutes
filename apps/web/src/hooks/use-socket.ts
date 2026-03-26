@@ -67,7 +67,9 @@ export interface ResonanceChain {
 export interface RiftState {
   id: string;
   topic: string;
+  type: 'standard' | 'quantum' | 'context';
   isQuantum: boolean;
+  persistsUntilEmpty: boolean;
   revealedTopic?: string;
   temperature: number;
   isChaosMode: boolean;
@@ -143,8 +145,12 @@ export function useSocketRift(
       setVibe(data.vibeColor || '#00ffff');
       setRiftState(data.rift);
       if (data.rift?.currentCatalyst) setCatalyst(data.rift.currentCatalyst);
-      const expires = new Date(data.rift.expiresAt).getTime();
-      setTimeLeft(Math.max(0, Math.floor((expires - Date.now()) / 1000)));
+      if (data.rift.type === 'context') {
+        setTimeLeft(-1);
+      } else {
+        const expires = new Date(data.rift.expiresAt).getTime();
+        setTimeLeft(Math.max(0, Math.floor((expires - Date.now()) / 1000)));
+      }
     });
 
     socket.on('new-message', (data: { message: RiftMessage }) => {
@@ -256,7 +262,14 @@ export function useSocketRift(
       playAudio('implode', 'neutral');
     });
 
-    const countdown = setInterval(() => setTimeLeft(prev => Math.max(0, prev - 1)), 1000);
+    const countdown = setInterval(
+      () =>
+        setTimeLeft((prev) => {
+          if (prev < 0) return prev;
+          return Math.max(0, prev - 1);
+        }),
+      1000,
+    );
 
     return () => {
       socket.disconnect();

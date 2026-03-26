@@ -9,7 +9,6 @@ import {
   useGetHomeFeed,
   useGetInviterLeaderboard,
   useGetPresenceSnapshot,
-  useGetUserProfile,
   useHealthCheck,
   useJoinRift,
   useListScheduledRooms,
@@ -63,6 +62,7 @@ export default function Landing() {
   const [scheduledFor, setScheduledFor] = useState('');
   const [hoveredRoomId, setHoveredRoomId] = useState<string | null>(null);
   const [joinMode, setJoinMode] = useState<'participate' | 'radio'>('participate');
+  const [roomMode, setRoomMode] = useState<'standard' | 'quantum' | 'context'>('standard');
   const [dockMode, setDockMode] = useState<'live' | 'friends' | 'plan'>('live');
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(
@@ -109,16 +109,6 @@ export default function Landing() {
       enabled: Boolean(authSession?.token),
       retry: false,
       staleTime: 30000,
-    },
-  });
-  const profileQuery = useGetUserProfile(authSession?.user.username ?? '', {
-    query: {
-      queryKey: authSession?.user.username
-        ? [`/api/users/${authSession.user.username}`]
-        : ['/api/users/anonymous'],
-      enabled: Boolean(authSession?.user.username),
-      staleTime: 15000,
-      refetchOnWindowFocus: false,
     },
   });
   const homeFeedQuery = useGetHomeFeed({
@@ -243,7 +233,6 @@ export default function Landing() {
 
   const rifts = riftsQuery.data?.rifts ?? [];
   const presence = presenceQuery.data;
-  const profile = profileQuery.data;
   const homeFeed = homeFeedQuery.data;
   const hoveredRoom = rifts.find((room) => room.id === hoveredRoomId) ?? null;
   const latestHighlight = homeFeed?.highlights[0] ?? null;
@@ -268,7 +257,15 @@ export default function Landing() {
   const backendErrorMessage = riftsQuery.error instanceof Error ? riftsQuery.error.message : null;
   const isDegraded = riftsQuery.isError;
   const canJoin = Boolean(username.trim()) && !joinMutation.isPending && !isDegraded && !isAuthenticating;
-  const topMemory = profile?.recentMemories[0] ?? null;
+  const contextRoomCount = rifts.filter((room) => room.type === 'context').length;
+  const currentRoomModeLabel =
+    roomMode === 'context' ? 'context room' : roomMode === 'quantum' ? 'quantum room' : 'standard room';
+  const currentRoomModeHint =
+    roomMode === 'context'
+      ? 'Stays open until empty. Messages still self-destruct after seven minutes.'
+      : roomMode === 'quantum'
+        ? 'Mystery-room energy with the same short-lived message decay.'
+        : 'Classic seven-minute room timer with normal ephemeral flow.';
 
   async function ensureAuthenticated(handle: string): Promise<StoredAuthSession> {
     if (authSession && authSession.user.username.toLowerCase() === handle.toLowerCase()) {
@@ -299,7 +296,11 @@ export default function Landing() {
     }
   }
 
-  const enterRoom = async (topic: string, roomId?: string, quantum = false) => {
+  const enterRoom = async (
+    topic: string,
+    roomId?: string,
+    requestedMode: 'standard' | 'quantum' | 'context' = 'standard',
+  ) => {
     const handle = (username.trim() || authSession?.user.username || '').slice(0, 24);
     const chosenTopic = topic.trim().slice(0, 60);
     if (!handle || !chosenTopic || isDegraded) return;
@@ -311,7 +312,8 @@ export default function Landing() {
           username: activeSession.user.username,
           topic: chosenTopic,
           riftId: roomId,
-          quantum,
+          quantum: requestedMode === 'quantum',
+          mode: requestedMode === 'context' ? 'context' : 'standard',
           asRadio: joinMode === 'radio',
         },
       });
@@ -325,7 +327,12 @@ export default function Landing() {
   };
 
   const joinFriendRoom = async (roomId: string, roomTopic: string) => {
-    await enterRoom(roomTopic, roomId);
+    const liveRoom = rifts.find((room) => room.id === roomId);
+    await enterRoom(
+      roomTopic,
+      roomId,
+      liveRoom?.type === 'context' ? 'context' : liveRoom?.isQuantum ? 'quantum' : 'standard',
+    );
   };
 
   const joinScheduledRoom = async (room: ScheduledRoom) => {
@@ -338,7 +345,7 @@ export default function Landing() {
       return;
     }
 
-    await enterRoom(room.topic, room.id);
+    await enterRoom(room.topic, room.id, 'standard');
   };
 
   const enableNotifications = async () => {
@@ -440,17 +447,19 @@ export default function Landing() {
         rooms={rifts.map((room) => ({
           id: room.id,
           topic: room.topic,
+          type: room.type,
           userCount: room.userCount,
           maxUsers: room.maxUsers,
           vibeColor: room.vibeColor,
           temperature: room.temperature,
           isChaosMode: room.isChaosMode,
           isQuantum: room.isQuantum,
+          persistsUntilEmpty: room.persistsUntilEmpty,
         }))}
         hoveredRoomId={hoveredRoomId}
         onHover={setHoveredRoomId}
-        onSelect={(roomId, topic) => {
-          void enterRoom(topic, roomId);
+        onSelect={(roomId, topic, selectedMode) => {
+          void enterRoom(topic, roomId, selectedMode);
         }}
       />
 
@@ -470,6 +479,7 @@ export default function Landing() {
             <div className="flex flex-wrap gap-2.5">
               <div className="simple-chip">{presence?.onlineNow ?? 0} online</div>
               <div className="simple-chip">{presence?.activeRooms ?? rifts.length} active rooms</div>
+              <div className="simple-chip">{contextRoomCount} context rooms</div>
               <div className="simple-chip">{joinMode === 'radio' ? 'radio mode' : 'live mode'}</div>
               <div className="simple-chip">7 minute decay</div>
             </div>
@@ -481,11 +491,19 @@ export default function Landing() {
                     {hoveredRoom ? 'selected room' : 'room universe'}
                   </div>
                   <div className="mt-3 text-[clamp(1.2rem,2vw,1.9rem)] font-medium text-white/92">
-                    {hoveredRoom ? (hoveredRoom.isQuantum ? 'Quantum Room' : hoveredRoom.topic) : 'Hover a sphere to inspect it, or create your own room.'}
+                    {hoveredRoom
+                      ? hoveredRoom.type === 'context'
+                        ? `${hoveredRoom.topic} · context`
+                        : hoveredRoom.isQuantum
+                          ? 'Quantum Room'
+                          : hoveredRoom.topic
+                      : 'Hover a sphere to inspect it, or create your own room.'}
                   </div>
                   <div className="mt-2 text-sm leading-6 text-white/54">
                     {hoveredRoom
-                      ? `${hoveredRoom.userCount}/${hoveredRoom.maxUsers} live now. Heat ${Math.round(hoveredRoom.temperature)}. Click the sphere to join.`
+                      ? hoveredRoom.type === 'context'
+                        ? `${hoveredRoom.userCount}/${hoveredRoom.maxUsers} live now. No room timer. This one closes only when empty.`
+                        : `${hoveredRoom.userCount}/${hoveredRoom.maxUsers} live now. Heat ${Math.round(hoveredRoom.temperature)}. Click the sphere to join.`
                       : 'The orbiting room spheres are the navigation. Everything else stays out of their way.'}
                   </div>
                 </div>
@@ -584,23 +602,33 @@ export default function Landing() {
                     <div className="font-mono text-[10px] uppercase tracking-[0.34em] text-white/32">friends live</div>
                     <div className="mt-3 grid gap-2">
                       {(presence?.friendsOnline ?? []).slice(0, 3).map((friend) => (
-                        <button
-                          key={`${friend.username}-${friend.roomId}`}
-                          type="button"
-                          onClick={() => {
-                            void joinFriendRoom(friend.roomId, friend.roomTopic);
-                          }}
-                          disabled={!canJoin || !friend.joinable}
-                          className="control-button flex items-start justify-between gap-3 px-3 py-3 text-left disabled:opacity-40"
-                        >
-                          <div>
-                            <div className="text-sm text-white/90">{friend.username}</div>
-                            <div className="mt-1 text-xs leading-5 text-white/54">
-                              {friend.roomTopic} | {friend.roomUserCount}/{friend.roomMaxUsers} | {Math.max(1, Math.round(friend.timeLeftSeconds / 60))}m
-                            </div>
-                          </div>
-                          <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/44">join</span>
-                        </button>
+                        (() => {
+                          const liveRoom = rifts.find((room) => room.id === friend.roomId);
+                          const timingLabel =
+                            liveRoom?.type === 'context' || friend.timeLeftSeconds < 0
+                              ? 'open until empty'
+                              : `${Math.max(1, Math.round(friend.timeLeftSeconds / 60))}m`;
+
+                          return (
+                            <button
+                              key={`${friend.username}-${friend.roomId}`}
+                              type="button"
+                              onClick={() => {
+                                void joinFriendRoom(friend.roomId, friend.roomTopic);
+                              }}
+                              disabled={!canJoin || !friend.joinable}
+                              className="control-button flex items-start justify-between gap-3 px-3 py-3 text-left disabled:opacity-40"
+                            >
+                              <div>
+                                <div className="text-sm text-white/90">{friend.username}</div>
+                                <div className="mt-1 text-xs leading-5 text-white/54">
+                                  {friend.roomTopic} | {friend.roomUserCount}/{friend.roomMaxUsers} | {timingLabel}
+                                </div>
+                              </div>
+                              <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/44">join</span>
+                            </button>
+                          );
+                        })()
                       ))}
                       {!presence?.friendsOnline?.length && <div className="text-sm text-white/46">No followed users are live right now.</div>}
                     </div>
@@ -775,25 +803,89 @@ export default function Landing() {
                 })}
               </div>
 
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                {([
+                  ['standard', 'standard'],
+                  ['quantum', 'quantum'],
+                  ['context', 'context'],
+                ] as const).map(([mode, label]) => {
+                  const active = roomMode === mode;
+                  const accent =
+                    mode === 'context' ? '#7bf6d1' : mode === 'quantum' ? '#c77dff' : identityGlow;
+                  return (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => setRoomMode(mode)}
+                      className="control-button px-3 py-2 text-[10px] uppercase tracking-[0.24em]"
+                      style={{
+                        background: active ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.05)',
+                        borderColor: active ? accent : 'rgba(255,255,255,0.12)',
+                        color: active ? '#ffffff' : 'rgba(255,255,255,0.58)',
+                        boxShadow: active ? `0 0 22px ${accent}22` : 'none',
+                      }}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+
               <div className="mt-6 grid gap-3">
                 <input
                   value={customTopic}
                   onChange={(event) => setCustomTopic(event.target.value.slice(0, 60))}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter' && canJoin && customTopic.trim()) {
-                      void enterRoom(customTopic, undefined, /quantum|void/i.test(customTopic));
+                      void enterRoom(customTopic, undefined, roomMode);
                     }
                   }}
                   placeholder="type a room topic"
                   className="signal-input text-sm"
                 />
 
+                <div className="px-1 text-xs leading-5 text-white/46">
+                  <span className="text-white/74">{currentRoomModeLabel}</span> · {currentRoomModeHint}
+                </div>
+
                 <div className="grid grid-cols-2 gap-2">
-                  <button type="button" onClick={() => void enterRoom(customTopic)} disabled={!canJoin || !customTopic.trim()} className="plasma-button plasma-button--primary px-4 py-3 disabled:opacity-35" style={{ borderColor: identityGlow, boxShadow: `0 0 30px ${identityGlow}22` }}>
-                    join room
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void enterRoom(
+                        customTopic ||
+                          (roomMode === 'context'
+                            ? 'Context Drift'
+                            : roomMode === 'quantum'
+                              ? 'Quantum Drift'
+                              : ''),
+                        undefined,
+                        roomMode,
+                      )
+                    }
+                    disabled={!canJoin || (!customTopic.trim() && roomMode === 'standard')}
+                    className="plasma-button plasma-button--primary px-4 py-3 disabled:opacity-35"
+                    style={{
+                      borderColor: roomMode === 'context' ? '#7bf6d1' : roomMode === 'quantum' ? '#c77dff' : identityGlow,
+                      boxShadow: `0 0 30px ${roomMode === 'context' ? '#7bf6d1' : roomMode === 'quantum' ? '#c77dff' : identityGlow}22`,
+                    }}
+                  >
+                    {roomMode === 'context' ? 'open context' : roomMode === 'quantum' ? 'open quantum' : 'join room'}
                   </button>
-                  <button type="button" onClick={() => void enterRoom(customTopic || 'Quantum Drift', undefined, true)} disabled={!canJoin} className="plasma-button plasma-button--ghost px-4 py-3 disabled:opacity-35">
-                    quantum
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const fallbackTopic =
+                        roomMode === 'context'
+                          ? 'Context Drift'
+                          : roomMode === 'quantum'
+                            ? 'Quantum Drift'
+                            : topicSeeds[0];
+                      setCustomTopic(fallbackTopic);
+                    }}
+                    className="plasma-button plasma-button--ghost px-4 py-3"
+                  >
+                    randomize
                   </button>
                 </div>
 
@@ -804,7 +896,11 @@ export default function Landing() {
                       type="button"
                       onClick={() => {
                         setCustomTopic(topic);
-                        void enterRoom(topic, undefined, topic === 'Nightly Void');
+                        void enterRoom(
+                          topic,
+                          undefined,
+                          roomMode === 'standard' && topic === 'Nightly Void' ? 'quantum' : roomMode,
+                        );
                       }}
                       disabled={!canJoin}
                       className="control-button px-3 py-2 text-xs disabled:opacity-40"

@@ -5,11 +5,13 @@
  * 7MINUTES API specification
  * OpenAPI spec version: 0.3.0
  */
+import type { JoinRiftRequestMode } from "./joinRiftRequestMode";
 
 export interface JoinRiftRequest {
   username: string;
   topic: string;
   riftId?: string;
   quantum?: boolean;
+  mode?: JoinRiftRequestMode;
   asRadio?: boolean;
 }

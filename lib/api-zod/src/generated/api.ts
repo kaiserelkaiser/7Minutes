@@ -305,7 +305,9 @@ export const ListRiftsResponse = zod.object({
     zod.object({
       id: zod.string(),
       topic: zod.string(),
+      type: zod.enum(["standard", "quantum", "context"]),
       isQuantum: zod.boolean(),
+      persistsUntilEmpty: zod.boolean(),
       userCount: zod.number(),
       maxUsers: zod.number(),
       createdAt: zod.date(),
@@ -325,6 +327,7 @@ export const JoinRiftBody = zod.object({
   topic: zod.string(),
   riftId: zod.string().optional(),
   quantum: zod.boolean().optional(),
+  mode: zod.enum(["standard", "context"]).optional(),
   asRadio: zod.boolean().optional(),
 });
 
@@ -337,7 +340,9 @@ export const JoinRiftResponse = zod.object({
   rift: zod.object({
     id: zod.string(),
     topic: zod.string(),
+    type: zod.enum(["standard", "quantum", "context"]),
     isQuantum: zod.boolean(),
+    persistsUntilEmpty: zod.boolean(),
     userCount: zod.number(),
     maxUsers: zod.number(),
     createdAt: zod.date(),

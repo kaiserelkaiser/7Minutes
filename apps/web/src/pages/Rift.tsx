@@ -10,6 +10,7 @@ import { formatClock, resolveDistinctRoomColors } from '@/lib/sevenMinutes';
 import { toast } from '@/hooks/use-toast';
 
 const RIFT_DURATION_SECONDS = 420;
+const MESSAGE_DECAY_SECONDS = 420;
 
 function describeVibe(color: string, temperature: number, isChaos: boolean) {
   if (isChaos) return 'chaotic';
@@ -79,11 +80,13 @@ export default function Rift() {
 
   const isRadio = session?.isRadio ?? false;
   const topic = riftState?.topic ?? 'Entering organism';
+  const riftType = riftState?.type ?? 'standard';
+  const isContextRoom = riftType === 'context';
   const temperature = riftState?.temperature ?? 0;
   const isChaos = riftState?.isChaosMode ?? false;
   const currentUser = session ? users[session.userId] : null;
   const burstAvailable = !isRadio && !currentUser?.burstUsed;
-  const timeRatio = Math.max(0, Math.min(1, timeLeft / RIFT_DURATION_SECONDS));
+  const timeRatio = isContextRoom ? 0 : Math.max(0, Math.min(1, timeLeft / RIFT_DURATION_SECONDS));
   const circumference = 2 * Math.PI * 118;
   const dashOffset = circumference * (1 - timeRatio);
   const vibeLabel = describeVibe(vibe, temperature, isChaos);
@@ -161,7 +164,7 @@ export default function Rift() {
         primary={vibe}
         secondary={session.color}
         tertiary={isChaos ? '#ff3366' : '#9d00ff'}
-        energy={isChaos ? 0.92 : 0.7}
+        energy={isContextRoom ? 0.58 : isChaos ? 0.92 : 0.7}
         temperature={temperature}
         activeTypers={activeTypers}
         isChaos={isChaos}
@@ -178,6 +181,7 @@ export default function Rift() {
 
       <OrganismField
         topic={topic}
+        roomType={riftType}
         vibeColor={vibe}
         temperature={temperature}
         activeTypers={activeTypers}
@@ -206,58 +210,78 @@ export default function Rift() {
           {topic}
         </h1>
         <div className="mt-2 flex flex-wrap gap-2 text-[10px] uppercase tracking-[0.22em] text-white/42">
+          <span>{isContextRoom ? 'context' : 'timed'}</span>
           <span>{visibleUsers} live</span>
-          <span>heat {Math.round(temperature)}</span>
-          <span>{isChaos ? 'chaos' : activeTypers > 0 ? `${activeTypers} typing` : 'drift'}</span>
+          <span>{isContextRoom ? 'open until empty' : `heat ${Math.round(temperature)}`}</span>
+          <span>{isChaos ? 'chaos' : activeTypers > 0 ? `${activeTypers} typing` : isContextRoom ? 'message decay 7:00' : 'drift'}</span>
         </div>
       </div>
 
-      <div className="pointer-events-none absolute left-1/2 top-5 z-[150] -translate-x-1/2 sm:top-6">
-        <div className="flex h-[116px] w-[116px] items-center justify-center sm:h-[132px] sm:w-[132px]">
-          <svg width="160" height="160" viewBox="0 0 280 280" className="h-[116px] w-[116px] overflow-visible sm:h-[132px] sm:w-[132px]">
-            <circle cx="140" cy="140" r="118" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
-            <circle
-              cx="140"
-              cy="140"
-              r="118"
-              fill="none"
-              stroke={timeLeft <= 30 ? '#ff6b6b' : vibe}
-              strokeWidth="4"
-              strokeLinecap="round"
-              strokeDasharray={circumference}
-              strokeDashoffset={dashOffset}
-              transform="rotate(-90 140 140)"
-              style={{ filter: `drop-shadow(0 0 18px ${vibe})` }}
-            />
-            <circle
-              cx="140"
-              cy="140"
-              r="88"
-              fill="none"
-              stroke="rgba(255,255,255,0.08)"
-              strokeDasharray="4 12"
-              strokeWidth="1"
-            />
-          </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-            <div className="font-mono text-[9px] uppercase tracking-[0.48em] text-white/26">time</div>
-            <div className="mt-1 font-display text-xl tracking-[0.2em] text-white sm:text-2xl sm:tracking-[0.28em]">
-              {formatClock(timeLeft)}
-            </div>
-            <div
-              className="mt-1.5 inline-flex items-center rounded-full border px-2.5 py-1 text-[9px] uppercase tracking-[0.22em]"
-              style={{
-                color: vibe,
-                borderColor: `${vibe}55`,
-                background: `${vibe}12`,
-                boxShadow: `0 0 28px ${vibe}18`,
-              }}
-            >
-              {vibeLabel}
+      {isContextRoom ? (
+        <div className="pointer-events-none absolute left-1/2 top-5 z-[150] -translate-x-1/2 sm:top-6">
+          <div
+            className="context-core flex items-center gap-3 rounded-full px-4 py-2.5 sm:px-5"
+            style={{
+              borderColor: `${vibe}36`,
+              boxShadow: `0 0 36px ${vibe}18`,
+            }}
+          >
+            <div className="h-2.5 w-2.5 rounded-full" style={{ background: vibe, boxShadow: `0 0 16px ${vibe}` }} />
+            <div className="font-mono text-[10px] uppercase tracking-[0.34em] text-white/44">context</div>
+            <div className="text-[11px] uppercase tracking-[0.22em] text-white/64">open until empty</div>
+            <div className="text-[11px] uppercase tracking-[0.22em] text-white/38">
+              messages explode at {formatClock(MESSAGE_DECAY_SECONDS)}
             </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="pointer-events-none absolute left-1/2 top-5 z-[150] -translate-x-1/2 sm:top-6">
+          <div className="flex h-[116px] w-[116px] items-center justify-center sm:h-[132px] sm:w-[132px]">
+            <svg width="160" height="160" viewBox="0 0 280 280" className="h-[116px] w-[116px] overflow-visible sm:h-[132px] sm:w-[132px]">
+              <circle cx="140" cy="140" r="118" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
+              <circle
+                cx="140"
+                cy="140"
+                r="118"
+                fill="none"
+                stroke={timeLeft <= 30 ? '#ff6b6b' : vibe}
+                strokeWidth="4"
+                strokeLinecap="round"
+                strokeDasharray={circumference}
+                strokeDashoffset={dashOffset}
+                transform="rotate(-90 140 140)"
+                style={{ filter: `drop-shadow(0 0 18px ${vibe})` }}
+              />
+              <circle
+                cx="140"
+                cy="140"
+                r="88"
+                fill="none"
+                stroke="rgba(255,255,255,0.08)"
+                strokeDasharray="4 12"
+                strokeWidth="1"
+              />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+              <div className="font-mono text-[9px] uppercase tracking-[0.48em] text-white/26">time</div>
+              <div className="mt-1 font-display text-xl tracking-[0.2em] text-white sm:text-2xl sm:tracking-[0.28em]">
+                {formatClock(timeLeft)}
+              </div>
+              <div
+                className="mt-1.5 inline-flex items-center rounded-full border px-2.5 py-1 text-[9px] uppercase tracking-[0.22em]"
+                style={{
+                  color: vibe,
+                  borderColor: `${vibe}55`,
+                  background: `${vibe}12`,
+                  boxShadow: `0 0 28px ${vibe}18`,
+                }}
+              >
+                {vibeLabel}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="absolute right-4 top-4 z-[160] flex flex-col items-end gap-2 sm:right-8 sm:top-7">
         <div className="pointer-events-none flex items-center gap-2 text-right">
@@ -302,8 +326,12 @@ export default function Rift() {
           {isRadio
             ? 'watch only'
             : burstAvailable
-              ? 'type anywhere · enter sends · hold space for burst'
-              : 'type anywhere · enter sends · tab drops fragment'}
+              ? isContextRoom
+                ? 'type anywhere · enter sends · messages die in 7:00 · hold space for burst'
+                : 'type anywhere · enter sends · hold space for burst'
+              : isContextRoom
+                ? 'type anywhere · enter sends · messages die in 7:00 · tab drops fragment'
+                : 'type anywhere · enter sends · tab drops fragment'}
         </div>
       </div>
 

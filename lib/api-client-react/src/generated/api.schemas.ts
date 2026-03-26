@@ -9,10 +9,20 @@ export interface HealthStatus {
   status: string;
 }
 
+export type RiftType = (typeof RiftType)[keyof typeof RiftType];
+
+export const RiftType = {
+  standard: "standard",
+  quantum: "quantum",
+  context: "context",
+} as const;
+
 export interface Rift {
   id: string;
   topic: string;
+  type: RiftType;
   isQuantum: boolean;
+  persistsUntilEmpty: boolean;
   userCount: number;
   maxUsers: number;
   createdAt: string;
@@ -63,11 +73,20 @@ export interface AuthResponse {
   user: AuthUser;
 }
 
+export type JoinRiftRequestMode =
+  (typeof JoinRiftRequestMode)[keyof typeof JoinRiftRequestMode];
+
+export const JoinRiftRequestMode = {
+  standard: "standard",
+  context: "context",
+} as const;
+
 export interface JoinRiftRequest {
   username: string;
   topic: string;
   riftId?: string;
   quantum?: boolean;
+  mode?: JoinRiftRequestMode;
   asRadio?: boolean;
 }
 

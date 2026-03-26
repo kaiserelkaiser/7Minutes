@@ -5,11 +5,14 @@
  * 7MINUTES API specification
  * OpenAPI spec version: 0.3.0
  */
+import type { RiftType } from "./riftType";
 
 export interface Rift {
   id: string;
   topic: string;
+  type: RiftType;
   isQuantum: boolean;
+  persistsUntilEmpty: boolean;
   userCount: number;
   maxUsers: number;
   createdAt: Date;
