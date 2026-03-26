@@ -266,11 +266,11 @@ export function ThoughtManifest({
           </div>
         ) : !isGhost ? (
           <div className="-translate-x-1/2 -translate-y-1/2 text-center" style={{ color: vibeColor }}>
-            <div className="font-mono text-[10px] uppercase tracking-[0.45em] text-white/35">
+            <div className="font-mono text-[9px] uppercase tracking-[0.34em] text-white/24">
               type anywhere
             </div>
-            <div className="mt-2 text-sm text-white/60">
-              Enter sends. Tab toggles fragment. Hold space to arm burst.
+            <div className="mt-1.5 text-xs text-white/42">
+              Enter sends.
             </div>
           </div>
         ) : null}
@@ -319,25 +319,13 @@ export function ThoughtManifest({
         );
       })}
 
-      <div className="absolute left-1/2 top-10 -translate-x-1/2 text-center">
-        <div className="font-mono text-[10px] uppercase tracking-[0.55em] text-white/25">
-          {isGhost ? 'ghost wireframe active' : burstCharging ? 'charging burst mode' : mode === 'fragment' ? 'fragment mode' : 'message mode'}
-        </div>
-      </div>
-
-      <div className="absolute inset-x-0 bottom-8 flex justify-center">
-        <div className="flex flex-wrap items-center justify-center gap-2 px-4">
-          <div className="rift-control-chip px-3 py-2 text-[10px] uppercase tracking-[0.28em] text-white/52">
-            {mode === 'fragment' ? 'tab for message' : 'tab for fragment'}
-          </div>
-          <div className="rift-control-chip px-3 py-2 text-[10px] uppercase tracking-[0.28em] text-white/52">
-            {burstReady ? 'burst armed' : burstCharging ? 'charging burst' : 'hold space to charge'}
-          </div>
-          <div className="rift-control-chip px-3 py-2 text-[10px] uppercase tracking-[0.28em] text-white/52">
-            escape clears thought
+      {(mode === 'fragment' || burstCharging || burstReady || isGhost) && (
+        <div className="pointer-events-none absolute left-1/2 top-10 -translate-x-1/2 text-center">
+          <div className="font-mono text-[9px] uppercase tracking-[0.38em] text-white/24">
+            {isGhost ? 'ghost' : burstCharging ? 'charging burst' : burstReady ? 'burst armed' : 'fragment mode'}
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

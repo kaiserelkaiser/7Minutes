@@ -89,7 +89,6 @@ export default function Rift() {
   const vibeLabel = describeVibe(vibe, temperature, isChaos);
   const visibleUsers = Object.values(users).filter((user) => !user.isRadio).length;
   const activeTypers = Object.values(users).filter((user) => user.isTyping && !user.isRadio).length;
-  const livingBlobs = messages.slice(-18).length;
 
   useEffect(() => {
     document.title = `7MINUTES - ${topic}`;
@@ -186,35 +185,21 @@ export default function Rift() {
         onTyping={setTyping}
       />
 
-      <div className="absolute left-4 top-4 z-[150] flex max-w-[min(92vw,24rem)] flex-col gap-3 sm:left-8 sm:top-8 sm:max-w-[25rem]">
-        <div className="clean-panel px-4 py-4 sm:px-5">
-          <div className="font-mono text-[10px] uppercase tracking-[0.56em] text-white/30">organism status</div>
-          <h1 className="mt-3 font-display text-[clamp(1.4rem,3vw,3rem)] uppercase tracking-[0.18em] text-white">
-            {topic}
-          </h1>
-          <div className="mt-3 flex flex-wrap gap-2 text-[10px] uppercase tracking-[0.28em] text-white/50">
-            <span className="simple-chip">{visibleUsers} visible minds</span>
-            <span className="simple-chip">heat {Math.round(temperature)}</span>
-            <span className="simple-chip">{isChaos ? 'chaos surge' : 'stable drift'}</span>
-          </div>
-          <div className="mt-3 text-sm leading-6 text-white/58">
-            {activeTypers > 0
-              ? `${activeTypers} minds are actively shaping the organism right now.`
-              : 'The field is breathing between pulses. Any new thought can bend the room.'}
-          </div>
-        </div>
-
-        <div className="clean-panel-soft px-4 py-3 text-xs leading-6 text-white/54 sm:px-5">
-          <div className="font-mono text-[10px] uppercase tracking-[0.48em] text-white/28">interaction physics</div>
-          <div className="mt-2">
-            Type anywhere. Enter births a thought. Tab releases smoke fragments. Escape clears the current manifestation.
-          </div>
+      <div className="pointer-events-none absolute left-4 top-4 z-[150] max-w-[min(82vw,22rem)] sm:left-8 sm:top-7">
+        <div className="font-mono text-[10px] uppercase tracking-[0.42em] text-white/28">live room</div>
+        <h1 className="mt-2 text-[clamp(1.1rem,2.4vw,1.7rem)] font-display uppercase tracking-[0.18em] text-white/94">
+          {topic}
+        </h1>
+        <div className="mt-2 flex flex-wrap gap-2 text-[10px] uppercase tracking-[0.22em] text-white/42">
+          <span>{visibleUsers} live</span>
+          <span>heat {Math.round(temperature)}</span>
+          <span>{isChaos ? 'chaos' : activeTypers > 0 ? `${activeTypers} typing` : 'drift'}</span>
         </div>
       </div>
 
-      <div className="pointer-events-none absolute left-1/2 top-1/2 z-[150] -translate-x-1/2 -translate-y-1/2">
-        <div className="flex h-[238px] w-[238px] items-center justify-center sm:h-[300px] sm:w-[300px]">
-          <svg width="280" height="280" viewBox="0 0 280 280" className="h-[220px] w-[220px] overflow-visible sm:h-[280px] sm:w-[280px]">
+      <div className="pointer-events-none absolute left-1/2 top-5 z-[150] -translate-x-1/2 sm:top-6">
+        <div className="flex h-[116px] w-[116px] items-center justify-center sm:h-[132px] sm:w-[132px]">
+          <svg width="160" height="160" viewBox="0 0 280 280" className="h-[116px] w-[116px] overflow-visible sm:h-[132px] sm:w-[132px]">
             <circle cx="140" cy="140" r="118" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
             <circle
               cx="140"
@@ -240,15 +225,12 @@ export default function Rift() {
             />
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-            <div className="font-mono text-[10px] uppercase tracking-[0.62em] text-white/34">temporal core</div>
-            <div className="mt-4 font-display text-3xl tracking-[0.28em] text-white sm:text-4xl sm:tracking-[0.38em]">
+            <div className="font-mono text-[9px] uppercase tracking-[0.48em] text-white/26">time</div>
+            <div className="mt-1 font-display text-xl tracking-[0.2em] text-white sm:text-2xl sm:tracking-[0.28em]">
               {formatClock(timeLeft)}
             </div>
-            <div className="mt-3 text-[11px] uppercase tracking-[0.34em] text-white/46">
-              {livingBlobs} living blobs - {ghostTrails.length} echoes
-            </div>
             <div
-              className="mt-3 inline-flex items-center rounded-full border px-3 py-1 text-[10px] uppercase tracking-[0.28em]"
+              className="mt-1.5 inline-flex items-center rounded-full border px-2.5 py-1 text-[9px] uppercase tracking-[0.22em]"
               style={{
                 color: vibe,
                 borderColor: `${vibe}55`,
@@ -262,85 +244,58 @@ export default function Rift() {
         </div>
       </div>
 
-      <div className="absolute right-4 top-4 z-[160] flex w-[min(92vw,21rem)] flex-col gap-3 sm:right-8 sm:top-8 sm:w-[22rem]">
-        <div className="clean-panel px-4 py-4 sm:px-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <div className="font-mono text-[10px] uppercase tracking-[0.5em] text-white/30">your aura</div>
-              <div className="mt-2 text-sm text-white/84">{session.username}</div>
-              <div className="mt-1 text-xs uppercase tracking-[0.26em] text-white/44">
-                {isRadio ? 'radio drift' : isGhostMode ? 'ghost wireframe' : 'solid aura'}
-              </div>
-            </div>
-            <div
-              className="h-12 w-12 rounded-full"
-              style={{
-                background: `radial-gradient(circle, ${session.color} 0%, transparent 72%)`,
-                boxShadow: `0 0 38px ${session.color}`,
-                opacity: isGhostMode ? 0.5 : 0.9,
-              }}
-            />
+      <div className="absolute right-4 top-4 z-[160] flex flex-col items-end gap-2 sm:right-8 sm:top-7">
+        <div className="pointer-events-none flex items-center gap-2 text-right">
+          <div className="text-[10px] uppercase tracking-[0.22em] text-white/36">
+            {session.username}
           </div>
-
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button
-              onClick={() => {
-                const next = !isGhostMode;
-                setIsGhostMode(next);
-                toggleGhostMode(next);
-              }}
-              className="pointer-events-auto control-button px-4 py-2 text-xs uppercase tracking-[0.28em]"
-              style={{
-                borderColor: isGhostMode ? session.color : 'rgba(255,255,255,0.12)',
-                color: isGhostMode ? '#ffffff' : 'rgba(255,255,255,0.74)',
-                boxShadow: isGhostMode ? `0 0 28px ${session.color}28` : undefined,
-              }}
-            >
-              {isGhostMode ? 'ghost wireframe' : 'solid aura'}
-            </button>
-            <div className="simple-chip">
-              {burstAvailable ? 'burst ready' : 'burst spent'}
-            </div>
-            <div className="simple-chip">
-              {messages.length} transmissions
-            </div>
-          </div>
+          <div
+            className="h-2.5 w-2.5 rounded-full"
+            style={{
+              background: session.color,
+              boxShadow: `0 0 16px ${session.color}`,
+              opacity: isGhostMode ? 0.5 : 0.9,
+            }}
+          />
         </div>
-
-        <div className="clean-panel-soft px-4 py-3 sm:px-5">
-          {!isConnected && (
-            <div className="font-mono text-[10px] uppercase tracking-[0.45em] text-red-300/74">
-              reconnecting to the organism
-            </div>
-          )}
-          {isLastWordGambit && (
-            <div className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#ff6b6b]">
-              last word gambit active
-            </div>
-          )}
-          {!isConnected && isLastWordGambit && <div className="mt-2 h-px bg-white/8" />}
-          <div className="mt-2 text-xs leading-6 text-white/54">
-            Room id {session.riftId}. Screens fade, memories distort, and every thought is already dying the second it lands.
+        <button
+          onClick={() => {
+            const next = !isGhostMode;
+            setIsGhostMode(next);
+            toggleGhostMode(next);
+          }}
+          className="pointer-events-auto control-button px-3 py-2 text-[10px] uppercase tracking-[0.24em]"
+          style={{
+            borderColor: isGhostMode ? session.color : 'rgba(255,255,255,0.12)',
+            color: isGhostMode ? '#ffffff' : 'rgba(255,255,255,0.74)',
+            boxShadow: isGhostMode ? `0 0 24px ${session.color}28` : undefined,
+          }}
+        >
+          {isRadio ? 'radio' : isGhostMode ? 'ghost' : 'live'}
+        </button>
+        {(!isConnected || isLastWordGambit) && (
+          <div className="pointer-events-none text-right text-[10px] uppercase tracking-[0.22em] text-white/34">
+            {!isConnected ? 'reconnecting' : ''}
+            {!isConnected && isLastWordGambit ? ' · ' : ''}
+            {isLastWordGambit ? 'last word' : ''}
           </div>
-        </div>
+        )}
       </div>
 
-      <div className="absolute bottom-4 left-4 z-[150] max-w-[min(92vw,24rem)] sm:bottom-8 sm:left-8">
-        <div className="clean-panel-soft px-4 py-3 text-xs leading-6 text-white/52 sm:px-5">
-          <div className="font-mono text-[10px] uppercase tracking-[0.48em] text-white/26">conversation current</div>
-          <div className="mt-2">
-            {isRadio
-              ? 'You are drifting invisibly. Watch the organism without adding mass to it.'
-              : 'Every reply bends gravity toward the center. Similar ideas can resonate and detonate the room.'}
-          </div>
+      <div className="pointer-events-none absolute bottom-4 left-4 z-[150] max-w-[min(80vw,21rem)] sm:bottom-8 sm:left-8">
+        <div className="text-[10px] uppercase tracking-[0.2em] text-white/28">
+          {isRadio
+            ? 'watch only'
+            : burstAvailable
+              ? 'type anywhere · enter sends · hold space for burst'
+              : 'type anywhere · enter sends · tab drops fragment'}
         </div>
       </div>
 
       <div className="pointer-events-none absolute bottom-4 right-4 z-[150] max-w-[70vw] sm:bottom-8 sm:right-8 sm:max-w-none">
-        <div className="watermark-shell px-4 py-3 text-right text-[9px] uppercase tracking-[0.34em] text-white/24 sm:text-[10px] sm:tracking-[0.48em]">
+        <div className="px-2 py-1.5 text-right text-[9px] uppercase tracking-[0.3em] text-white/18 sm:text-[10px] sm:tracking-[0.42em]">
           <div>{session.username}</div>
-          <div className="mt-2">7MINUTES - no history - no replay</div>
-          <div className="mt-2">{session.riftId}</div>
+          <div className="mt-1.5">7MINUTES</div>
         </div>
       </div>
 
@@ -353,9 +308,9 @@ export default function Rift() {
             className="pointer-events-none absolute left-1/2 top-28 z-[170] -translate-x-1/2 text-center"
           >
             <div className="mx-auto h-6 w-6 rounded-full bg-white/90 shadow-[0_0_30px_rgba(255,255,255,0.8)]" />
-            <div className="clean-panel mt-6 max-w-lg px-8 py-6">
-              <div className="font-mono text-[10px] uppercase tracking-[0.55em] text-white/38">catalyst bomb</div>
-              <div className="mt-4 text-lg leading-8 text-white/88">{catalyst}</div>
+            <div className="mt-5 max-w-lg px-4 py-3 text-center">
+              <div className="font-mono text-[10px] uppercase tracking-[0.44em] text-white/36">catalyst</div>
+              <div className="mt-3 text-base leading-7 text-white/88">{catalyst}</div>
             </div>
           </motion.div>
         )}
@@ -369,13 +324,10 @@ export default function Rift() {
             exit={{ opacity: 0, scale: 1.2 }}
             className="pointer-events-none absolute inset-0 z-[180] flex items-center justify-center"
           >
-            <div className="clean-panel max-w-[min(82vw,46rem)] px-8 py-7 text-center">
-              <div className="font-mono text-[11px] uppercase tracking-[0.6em] text-white/40">resonance moment</div>
+            <div className="max-w-[min(82vw,46rem)] px-6 py-6 text-center">
+              <div className="font-mono text-[10px] uppercase tracking-[0.44em] text-white/34">resonance</div>
               <div className="mt-6 text-[clamp(2rem,4.5vw,4rem)] font-semibold leading-tight text-white [text-shadow:0_0_42px_rgba(255,255,255,0.42)]">
                 {echoMoment.mergedContent}
-              </div>
-              <div className="mt-4 text-xs uppercase tracking-[0.32em] text-white/44">
-                the room bent around a shared thought
               </div>
             </div>
           </motion.div>
@@ -390,7 +342,7 @@ export default function Rift() {
             exit={{ opacity: 0, scale: 1.15 }}
             className="pointer-events-none absolute inset-0 z-[185] flex items-center justify-center"
           >
-            <div className="clean-panel max-w-[min(82vw,44rem)] px-8 py-7 text-center shadow-[0_0_70px_rgba(255,226,122,0.28)]">
+            <div className="max-w-[min(82vw,44rem)] px-6 py-6 text-center shadow-[0_0_70px_rgba(255,226,122,0.28)]">
               <div className="font-mono text-[11px] uppercase tracking-[0.55em] text-[#ffe27a]/72">
                 {resonanceChain.achievement}
               </div>
@@ -400,8 +352,8 @@ export default function Rift() {
               <div className="mt-4 text-sm uppercase tracking-[0.34em] text-white/52">
                 {resonanceChain.participants.map((participant) => participant.username).join(' / ')}
               </div>
-              <div className="mt-3 text-xs uppercase tracking-[0.28em] text-[#ffe27a]/70">
-                golden aura {resonanceChain.goldenAuraSeconds}s - next thoughts x{resonanceChain.messageBoostMultiplier.toFixed(1)}
+              <div className="mt-3 text-xs uppercase tracking-[0.22em] text-[#ffe27a]/64">
+                aura {resonanceChain.goldenAuraSeconds}s
               </div>
             </div>
           </motion.div>

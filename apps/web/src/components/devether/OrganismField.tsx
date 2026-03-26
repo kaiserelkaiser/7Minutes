@@ -408,28 +408,20 @@ export function OrganismField({ topic, vibeColor, messages, users, fragments, gh
           </div>
         ))}
 
-        {ghostTrails.map((trail, index) => (
+        {ghostTrails.slice(-3).map((trail, index) => (
           <div
             key={`${trail.userId}-${trail.leftAt}`}
-            className="absolute text-xs text-white/30"
+            className="absolute text-[10px] uppercase tracking-[0.2em] text-white/18"
             style={{
-              left: `${12 + (index % 4) * 18}%`,
-              top: `${14 + Math.floor(index / 4) * 10}%`,
+              left: `${10 + (index % 3) * 22}%`,
+              top: `${12 + Math.floor(index / 3) * 8}%`,
             }}
           >
-            <div className="font-mono uppercase tracking-[0.35em]" style={{ color: trail.color }}>
-              ghost
+            <div className="font-mono" style={{ color: trail.color }}>
+              {trail.username} faded
             </div>
-            <div className="mt-1 max-w-[180px] leading-relaxed">{trail.username} drifted away thinking about {trail.lastTopic}</div>
           </div>
         ))}
-
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-center text-white/22">
-          <div className="font-display text-[clamp(1.8rem,5vw,4rem)] uppercase tracking-[0.35em]">{topic}</div>
-          <div className="mt-2 font-mono text-[10px] uppercase tracking-[0.42em] text-white/18">
-            living membrane
-          </div>
-        </div>
       </div>
     </div>
   );
