@@ -50,12 +50,54 @@ export interface GhostTrail {
   expiresAt: Date;
 }
 
+export interface RiftParticipant {
+  userId: string;
+  username: string;
+  color: string;
+}
+
+export interface EarlyDeparture {
+  userId: string;
+  username: string;
+  color: string;
+  leftAt: Date;
+}
+
+export interface ResonanceChain {
+  participantIds: string[];
+  participants: Array<{ userId: string; username: string; userColor: string }>;
+  sharedThought: string;
+}
+
+export interface RiftClosureSnapshot {
+  roomId: string;
+  topic: string;
+  participantIds: string[];
+  participantNames: string[];
+  peakUsers: number;
+  totalMessages: number;
+  vibeColor: string;
+  temperature: number;
+  resonanceMoments: number;
+  resonanceChains: number;
+  catalystHistory: string[];
+  earlyDepartureUserIds: string[];
+  messages: Array<{ content: string; createdAt: Date }>;
+}
+
+export interface RemoveUserResult {
+  trail: GhostTrail | null;
+  closedSnapshot: RiftClosureSnapshot | null;
+}
+
 export interface Rift {
   id: string;
   topic: string;
   isQuantum: boolean;
   revealedTopic: string | null;
   users: Map<string, RiftUser>;
+  participantLedger: Map<string, RiftParticipant>;
+  earlyDepartures: Map<string, EarlyDeparture>;
   radioUsers: Set<string>;
   messages: Message[];
   fragments: Fragment[];
@@ -67,9 +109,13 @@ export interface Rift {
   isChaosMode: boolean;
   lastCatalystAt: Date | null;
   currentCatalyst: string | null;
+  catalystHistory: string[];
   messageRate: number;
   lastMessageAt: Date | null;
   lastWordWinnerId: string | null;
+  peakUsers: number;
+  resonanceMoments: number;
+  resonanceChains: number;
 }
 
 const RIFT_DURATION_MS = 7 * 60 * 1000;
@@ -243,11 +289,13 @@ export function findOrCreateRift(topic: string, riftId?: string, quantum?: boole
   const isQuantum = !!quantum;
   const revealedTopic = isQuantum ? null : topic;
   const newRift: Rift = {
-    id: generateId(),
+    id: riftId?.trim() || generateId(),
     topic: isQuantum ? "???" : topic,
     isQuantum,
     revealedTopic,
     users: new Map(),
+    participantLedger: new Map(),
+    earlyDepartures: new Map(),
     radioUsers: new Set(),
     messages: [],
     fragments: [],
@@ -259,9 +307,13 @@ export function findOrCreateRift(topic: string, riftId?: string, quantum?: boole
     isChaosMode: false,
     lastCatalystAt: null,
     currentCatalyst: null,
+    catalystHistory: [],
     messageRate: 0,
     lastMessageAt: null,
     lastWordWinnerId: null,
+    peakUsers: 0,
+    resonanceMoments: 0,
+    resonanceChains: 0,
   };
   if (isQuantum) {
     const randomTopic = QUANTUM_TOPICS[Math.floor(Math.random() * QUANTUM_TOPICS.length)];
@@ -272,12 +324,25 @@ export function findOrCreateRift(topic: string, riftId?: string, quantum?: boole
   return newRift;
 }
 
-export function addUserToRift(rift: Rift, username: string, asRadio = false): RiftUser | null {
+export function addUserToRift(
+  rift: Rift,
+  username: string,
+  asRadio = false,
+  options?: { userId?: string; color?: string },
+): RiftUser | null {
   if (!asRadio && rift.users.size >= MAX_USERS_PER_RIFT) return null;
+  if (options?.userId) {
+    const existing = rift.users.get(options.userId);
+    if (existing) {
+      existing.isRadio = asRadio;
+      rift.earlyDepartures.delete(existing.id);
+      return existing;
+    }
+  }
   const user: RiftUser = {
-    id: generateId(),
+    id: options?.userId ?? generateId(),
     username,
-    color: pickUserColor(rift, username),
+    color: options?.color ?? pickUserColor(rift, username),
     isGhost: false,
     isRadio: asRadio,
     isTyping: false,
@@ -290,15 +355,22 @@ export function addUserToRift(rift: Rift, username: string, asRadio = false): Ri
     momentum: 0,
   };
   rift.users.set(user.id, user);
+  rift.participantLedger.set(user.id, {
+    userId: user.id,
+    username: user.username,
+    color: user.color,
+  });
+  rift.earlyDepartures.delete(user.id);
   if (asRadio) {
     rift.radioUsers.add(user.id);
   }
+  rift.peakUsers = Math.max(rift.peakUsers, rift.users.size);
   return user;
 }
 
-export function removeUserFromRift(riftId: string, userId: string): GhostTrail | null {
+export function removeUserFromRift(riftId: string, userId: string): RemoveUserResult {
   const rift = rifts.get(riftId);
-  if (!rift) return null;
+  if (!rift) return { trail: null, closedSnapshot: null };
   pruneRift(rift);
   const user = rift.users.get(userId);
   let trail: GhostTrail | null = null;
@@ -317,13 +389,40 @@ export function removeUserFromRift(riftId: string, userId: string): GhostTrail |
       rift.ghostTrails = rift.ghostTrails.filter(t => t.userId !== userId || t.leftAt !== trail!.leftAt);
     }, GHOST_TRAIL_EXPIRE_MS);
   }
+  if (user) {
+    rift.earlyDepartures.set(user.id, {
+      userId: user.id,
+      username: user.username,
+      color: user.color,
+      leftAt: new Date(),
+    });
+  }
   rift.radioUsers.delete(userId);
   rift.users.delete(userId);
+  let closedSnapshot: RiftClosureSnapshot | null = null;
   if (rift.users.size === 0 && rift.radioUsers.size === 0) {
+    closedSnapshot = {
+      roomId: rift.id,
+      topic: rift.revealedTopic ?? rift.topic,
+      participantIds: Array.from(rift.participantLedger.keys()),
+      participantNames: Array.from(rift.participantLedger.values()).map((participant) => participant.username),
+      peakUsers: rift.peakUsers,
+      totalMessages: rift.messages.length,
+      vibeColor: rift.vibeColor,
+      temperature: rift.temperature,
+      resonanceMoments: rift.resonanceMoments,
+      resonanceChains: rift.resonanceChains,
+      catalystHistory: [...rift.catalystHistory],
+      earlyDepartureUserIds: Array.from(rift.earlyDepartures.keys()),
+      messages: rift.messages.map((message) => ({
+        content: message.content,
+        createdAt: message.createdAt,
+      })),
+    };
     rifts.delete(riftId);
     logger.info({ riftId }, "Rift removed (empty)");
   }
-  return trail;
+  return { trail, closedSnapshot };
 }
 
 export function addMessage(rift: Rift, userId: string, content: string, isBurst = false): Message | null {
@@ -404,7 +503,94 @@ export function dropCatalyst(rift: Rift): string {
   const catalyst = CATALYST_PROMPTS[Math.floor(Math.random() * CATALYST_PROMPTS.length)];
   rift.currentCatalyst = catalyst;
   rift.lastCatalystAt = new Date();
+  rift.catalystHistory = [...rift.catalystHistory.slice(-4), catalyst];
   return catalyst;
+}
+
+export function registerResonanceMoment(
+  rift: Rift,
+  participantIds: string[],
+  mode: "echo" | "chain",
+): void {
+  rift.resonanceMoments += 1;
+  if (mode === "chain") {
+    rift.resonanceChains += 1;
+    rift.temperature = Math.min(100, rift.temperature + 20);
+    rift.isChaosMode = rift.temperature >= CHAOS_TEMP_THRESHOLD;
+  }
+
+  for (const participantId of participantIds) {
+    const user = rift.users.get(participantId);
+    if (!user) continue;
+    user.vibeScore = Math.min(100, user.vibeScore + (mode === "chain" ? 18 : 10));
+    user.momentum = Math.min(100, user.momentum + (mode === "chain" ? 22 : 12));
+  }
+}
+
+export function checkResonanceChain(
+  rift: Rift,
+  newContent: string,
+  newUserId: string,
+): ResonanceChain | null {
+  const now = Date.now();
+  const recent = rift.messages.filter(
+    (message) =>
+      message.userId !== newUserId &&
+      now - message.createdAt.getTime() < 10000 &&
+      computeSimilarity(newContent.toLowerCase(), message.content.toLowerCase()) > 0.45,
+  );
+
+  const uniqueMessages = dedupeByUser(recent).slice(0, 4);
+  if (uniqueMessages.length < 2) {
+    return null;
+  }
+
+  const currentUser = rift.users.get(newUserId);
+  if (!currentUser) return null;
+
+  const participants = [
+    ...uniqueMessages.map((message) => ({
+      userId: message.userId,
+      username: message.username,
+      userColor: message.userColor,
+    })),
+    {
+      userId: currentUser.id,
+      username: currentUser.username,
+      userColor: currentUser.color,
+    },
+  ];
+
+  const participantIds = Array.from(new Set(participants.map((participant) => participant.userId)));
+  if (participantIds.length < 3) {
+    return null;
+  }
+
+  return {
+    participantIds,
+    participants,
+    sharedThought: extractSharedThought([newContent, ...uniqueMessages.map((message) => message.content)]),
+  };
+}
+
+export function getPresenceRoster() {
+  const now = Date.now();
+  return getActiveRifts().map((rift) => ({
+    roomId: rift.id,
+    topic: rift.revealedTopic ?? rift.topic,
+    userCount: rift.users.size,
+    maxUsers: MAX_USERS_PER_RIFT,
+    temperature: rift.temperature,
+    vibeColor: rift.vibeColor,
+    timeLeftSeconds: Math.max(0, Math.floor((rift.expiresAt.getTime() - now) / 1000)),
+    users: Array.from(rift.users.values())
+      .filter((user) => !user.isRadio)
+      .map((user) => ({
+        userId: user.id,
+        username: user.username,
+        colorSignature: user.color,
+      })),
+  }));
 }
 
 export function setUserTyping(riftId: string, userId: string, isTyping: boolean): void {
@@ -524,6 +710,10 @@ export function getSpeakerCount(rift: Rift): number {
   return Array.from(rift.users.values()).filter((user) => !user.isRadio).length;
 }
 
+export function getRiftParticipants(rift: Rift): RiftParticipant[] {
+  return Array.from(rift.participantLedger.values());
+}
+
 function pruneRift(rift: Rift): void {
   const now = Date.now();
   rift.messages = rift.messages.filter((message) => message.expiresAt.getTime() > now);
@@ -531,6 +721,36 @@ function pruneRift(rift: Rift): void {
     (fragment) => !fragment.completed && fragment.expiresAt.getTime() > now,
   );
   rift.ghostTrails = rift.ghostTrails.filter((trail) => trail.expiresAt.getTime() > now);
+}
+
+function dedupeByUser(messages: Message[]): Message[] {
+  const seen = new Set<string>();
+  const unique: Message[] = [];
+  for (const message of [...messages].reverse()) {
+    if (seen.has(message.userId)) continue;
+    seen.add(message.userId);
+    unique.unshift(message);
+  }
+  return unique;
+}
+
+function extractSharedThought(contents: string[]): string {
+  const score = new Map<string, number>();
+  for (const content of contents) {
+    const uniqueWords = new Set(
+      content
+        .toLowerCase()
+        .split(/[^a-z0-9]+/)
+        .map((word) => word.trim())
+        .filter((word) => word.length > 3),
+    );
+    for (const word of uniqueWords) {
+      score.set(word, (score.get(word) ?? 0) + 1);
+    }
+  }
+
+  const best = [...score.entries()].sort((left, right) => right[1] - left[1])[0];
+  return best?.[0] ?? "shared signal";
 }
 
 function colorFromUsername(username: string): string {

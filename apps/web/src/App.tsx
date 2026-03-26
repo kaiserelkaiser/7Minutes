@@ -3,6 +3,7 @@ import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { clearStoredRoomSession } from "@/lib/auth-session";
 import NotFound from "@/pages/not-found";
 
 const Landing = lazy(() => import("@/pages/Landing"));
@@ -46,7 +47,7 @@ function App() {
       | undefined;
 
     if (navigation?.type === "reload") {
-      sessionStorage.removeItem("devether_user");
+      clearStoredRoomSession();
     }
   }, []);
 

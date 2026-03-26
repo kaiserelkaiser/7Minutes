@@ -175,6 +175,7 @@ export function ThoughtManifest({
     }),
     [draft.length, mode, phase, userKey],
   );
+  const burstChargeRatio = burstCharging ? (Math.sin(phase * 4) + 1) / 2 : burstReady ? 1 : 0;
 
   if (isRadio) {
     return (
@@ -191,6 +192,19 @@ export function ThoughtManifest({
 
   return (
     <div className="pointer-events-none absolute inset-0 z-[140] overflow-hidden">
+      <div
+        className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full"
+        style={{
+          left: cursor.x,
+          top: cursor.y,
+          width: 84,
+          height: 84,
+          background: `radial-gradient(circle, ${previewColor}22 0%, transparent 72%)`,
+          filter: 'blur(12px)',
+          opacity: draft ? 0.9 : 0.48,
+        }}
+      />
+
       <div
         className="absolute -translate-x-1/2 -translate-y-1/2"
         style={{ left: cursor.x, top: cursor.y }}
@@ -220,6 +234,16 @@ export function ThoughtManifest({
                 strokeWidth={burstReady ? 2.6 : 1.8}
                 filter="url(#thought-glow)"
               />
+              <circle
+                cx="0"
+                cy="0"
+                r={72 + burstChargeRatio * 10}
+                fill="none"
+                stroke={previewColor}
+                strokeOpacity={burstReady ? 0.45 : 0.18}
+                strokeDasharray="5 14"
+                strokeWidth="1"
+              />
             </svg>
             <div className="absolute inset-0 flex items-center justify-center px-10 text-center">
               <div>
@@ -228,6 +252,9 @@ export function ThoughtManifest({
                 </div>
                 <div className="mt-3 max-w-[260px] text-lg font-medium leading-snug text-white drop-shadow-[0_0_18px_rgba(255,255,255,0.24)]">
                   {draft}
+                </div>
+                <div className="mt-3 text-[10px] uppercase tracking-[0.32em] text-white/36">
+                  {mode === 'fragment' ? 'release a question into the drift' : 'press enter to throw into the core'}
                 </div>
               </div>
             </div>
@@ -266,9 +293,46 @@ export function ThoughtManifest({
         );
       })}
 
+      {Array.from({ length: draft ? 6 : 3 }, (_, index) => {
+        const orbit = 28 + index * 14;
+        const angle = phase * (1.3 + index * 0.16) + index;
+        const x = cursor.x + Math.cos(angle) * orbit;
+        const y = cursor.y + Math.sin(angle * 1.2) * orbit * 0.55;
+        return (
+          <span
+            key={`thought-orb-${index}`}
+            className="absolute block rounded-full"
+            style={{
+              left: x,
+              top: y,
+              width: 4 + index,
+              height: 4 + index,
+              background: previewColor,
+              boxShadow: `0 0 16px ${previewColor}`,
+              opacity: draft ? 0.22 + index * 0.08 : 0.14 + index * 0.05,
+              transform: 'translate(-50%, -50%)',
+            }}
+          />
+        );
+      })}
+
       <div className="absolute left-1/2 top-10 -translate-x-1/2 text-center">
         <div className="font-mono text-[10px] uppercase tracking-[0.55em] text-white/25">
           {isGhost ? 'ghost wireframe active' : burstCharging ? 'charging burst mode' : mode === 'fragment' ? 'fragment mode' : 'message mode'}
+        </div>
+      </div>
+
+      <div className="absolute inset-x-0 bottom-8 flex justify-center">
+        <div className="flex flex-wrap items-center justify-center gap-2 px-4">
+          <div className="rift-control-chip px-3 py-2 text-[10px] uppercase tracking-[0.28em] text-white/52">
+            {mode === 'fragment' ? 'tab for message' : 'tab for fragment'}
+          </div>
+          <div className="rift-control-chip px-3 py-2 text-[10px] uppercase tracking-[0.28em] text-white/52">
+            {burstReady ? 'burst armed' : burstCharging ? 'charging burst' : 'hold space to charge'}
+          </div>
+          <div className="rift-control-chip px-3 py-2 text-[10px] uppercase tracking-[0.28em] text-white/52">
+            escape clears thought
+          </div>
         </div>
       </div>
     </div>

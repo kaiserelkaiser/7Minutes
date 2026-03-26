@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="7MINUTES icon">
+  <defs>
+    <radialGradient id="a" cx="35%" cy="30%" r="75%">
+      <stop offset="0%" stop-color="#00f5ff" stop-opacity="0.95" />
+      <stop offset="55%" stop-color="#ff00ff" stop-opacity="0.5" />
+      <stop offset="100%" stop-color="#0a0118" />
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" rx="124" fill="#0a0118" />
+  <path
+    d="M360 117c48 56 45 146 5 203-39 57-121 83-188 58-67-25-118-94-113-167 5-73 72-147 145-159 53-9 106 8 151 65Z"
+    fill="url(#a)"
+    stroke="rgba(255,255,255,0.45)"
+    stroke-width="6"
+  />
+  <text
+    x="256"
+    y="282"
+    text-anchor="middle"
+    font-size="118"
+    font-family="Space Grotesk, Inter, sans-serif"
+    letter-spacing="22"
+    fill="#ffffff"
+  >
+    7M
+  </text>
+</svg>

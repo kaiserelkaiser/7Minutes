@@ -3,10 +3,12 @@ import { logger } from "./logger";
 import {
   addFragment,
   addMessage,
+  checkResonanceChain,
   checkEchoMoment,
   completeFragment,
   dropCatalyst,
   expireRift,
+  getRiftParticipants,
   getRiftById,
   getRiftUser,
   getSpeakerCount,
@@ -19,9 +21,17 @@ import {
   setGhostMode,
   setUserTyping,
   useBurst,
+  registerResonanceMoment,
 } from "./riftManager";
+import { verifyRiftSessionToken } from "./auth";
+import {
+  finalizeClosedRoom,
+  recordMessage,
+  recordResonance,
+  syncRoomSnapshot,
+} from "./persistence";
 
-const socketToRift = new Map<string, { riftId: string; userId: string }>();
+const socketToRift = new Map<string, { riftId: string; userId: string; username: string }>();
 const riftSchedules = new Map<
   string,
   {
@@ -89,6 +99,27 @@ function ensureRiftSchedule(io: IOServer, riftId: string): void {
   schedule.close = setTimeout(() => {
     const currentRift = getRiftById(riftId);
     const lastWordWinnerId = currentRift?.lastWordWinnerId ?? null;
+    if (currentRift) {
+      const participants = getRiftParticipants(currentRift);
+      void finalizeClosedRoom({
+        roomId: currentRift.id,
+        topic: currentRift.revealedTopic ?? currentRift.topic,
+        participantIds: participants.map((participant) => participant.userId),
+        participantNames: participants.map((participant) => participant.username),
+        peakUsers: currentRift.peakUsers,
+        totalMessages: currentRift.messages.length,
+        vibeColor: currentRift.vibeColor,
+        temperature: currentRift.temperature,
+        resonanceMoments: currentRift.resonanceMoments,
+        resonanceChains: currentRift.resonanceChains,
+        catalystHistory: [...currentRift.catalystHistory],
+        earlyDepartureUserIds: Array.from(currentRift.earlyDepartures.keys()),
+        messages: currentRift.messages.map((message) => ({
+          content: message.content,
+          createdAt: message.createdAt,
+        })),
+      });
+    }
     io.to(riftId).emit("rift-closed", { lastWordWinnerId });
     clearRiftSchedule(riftId);
     expireRift(riftId);
@@ -111,6 +142,7 @@ function scheduleNextCatalyst(io: IOServer, riftId: string): NodeJS.Timeout {
     if (getSpeakerCount(rift) >= 2) {
       const catalyst = dropCatalyst(rift);
       io.to(riftId).emit("catalyst-drop", { catalyst });
+      syncPersistedRift(riftId);
     }
 
     const schedule = riftSchedules.get(riftId);
@@ -152,114 +184,113 @@ function emitRiftError(socket: Socket, message: string): void {
   socket.emit("rift-error", { message });
 }
 
-function parseJoinPayload(payload: unknown): { riftId: string; userId: string } | null {
+function parseJoinPayload(payload: unknown): { riftId: string; sessionToken: string } | null {
   if (!payload || typeof payload !== "object") {
     return null;
   }
 
   const data = payload as Record<string, unknown>;
   const riftId = typeof data.riftId === "string" ? data.riftId.trim() : "";
-  const userId = typeof data.userId === "string" ? data.userId.trim() : "";
+  const sessionToken =
+    typeof data.sessionToken === "string" ? data.sessionToken.trim() : "";
 
-  if (!riftId || !userId) {
+  if (!riftId || !sessionToken) {
     return null;
   }
 
-  return { riftId, userId };
+  return { riftId, sessionToken };
 }
 
 function parseMessagePayload(
   payload: unknown,
-): { riftId: string; userId: string; content: string; isBurst: boolean } | null {
+): { content: string; isBurst: boolean } | null {
   if (!payload || typeof payload !== "object") {
     return null;
   }
 
   const data = payload as Record<string, unknown>;
-  const riftId = typeof data.riftId === "string" ? data.riftId.trim() : "";
-  const userId = typeof data.userId === "string" ? data.userId.trim() : "";
   const content = typeof data.content === "string" ? data.content.trim().slice(0, 500) : "";
 
-  if (!riftId || !userId || !content) {
+  if (!content) {
     return null;
   }
 
-  return { riftId, userId, content, isBurst: Boolean(data.isBurst) };
+  return { content, isBurst: Boolean(data.isBurst) };
 }
 
 function parseTogglePayload(
   payload: unknown,
   key: "isGhost",
-): { riftId: string; userId: string; value: boolean } | null {
+): { value: boolean } | null {
   if (!payload || typeof payload !== "object") {
     return null;
   }
 
   const data = payload as Record<string, unknown>;
-  const riftId = typeof data.riftId === "string" ? data.riftId.trim() : "";
-  const userId = typeof data.userId === "string" ? data.userId.trim() : "";
-
-  if (!riftId || !userId || typeof data[key] !== "boolean") {
+  if (typeof data[key] !== "boolean") {
     return null;
   }
 
-  return { riftId, userId, value: data[key] as boolean };
-}
-
-function parsePresencePayload(payload: unknown): { riftId: string; userId: string } | null {
-  if (!payload || typeof payload !== "object") {
-    return null;
-  }
-
-  const data = payload as Record<string, unknown>;
-  const riftId = typeof data.riftId === "string" ? data.riftId.trim() : "";
-  const userId = typeof data.userId === "string" ? data.userId.trim() : "";
-
-  if (!riftId || !userId) {
-    return null;
-  }
-
-  return { riftId, userId };
+  return { value: data[key] as boolean };
 }
 
 function parseFragmentPayload(
   payload: unknown,
-): { riftId: string; userId: string; content: string } | null {
+): { content: string } | null {
   if (!payload || typeof payload !== "object") {
     return null;
   }
 
   const data = payload as Record<string, unknown>;
-  const riftId = typeof data.riftId === "string" ? data.riftId.trim() : "";
-  const userId = typeof data.userId === "string" ? data.userId.trim() : "";
   const content = typeof data.content === "string" ? data.content.trim().slice(0, 200) : "";
 
-  if (!riftId || !userId || !content) {
+  if (!content) {
     return null;
   }
 
-  return { riftId, userId, content };
+  return { content };
 }
 
 function parseCompleteFragmentPayload(
   payload: unknown,
-): { riftId: string; userId: string; fragmentId: string; completion: string } | null {
+): { fragmentId: string; completion: string } | null {
   if (!payload || typeof payload !== "object") {
     return null;
   }
 
   const data = payload as Record<string, unknown>;
-  const riftId = typeof data.riftId === "string" ? data.riftId.trim() : "";
-  const userId = typeof data.userId === "string" ? data.userId.trim() : "";
   const fragmentId = typeof data.fragmentId === "string" ? data.fragmentId.trim() : "";
   const completion =
     typeof data.completion === "string" ? data.completion.trim().slice(0, 300) : "";
 
-  if (!riftId || !userId || !fragmentId || !completion) {
+  if (!fragmentId || !completion) {
     return null;
   }
 
-  return { riftId, userId, fragmentId, completion };
+  return { fragmentId, completion };
+}
+
+function getSocketContext(socketId: string): { riftId: string; userId: string; username: string } | null {
+  return socketToRift.get(socketId) ?? null;
+}
+
+function syncPersistedRift(riftId: string): void {
+  const rift = getRiftById(riftId);
+  if (!rift) return;
+
+  void syncRoomSnapshot({
+    id: rift.id,
+    topic: rift.revealedTopic ?? rift.topic,
+    type: rift.isQuantum ? "quantum" : "standard",
+    activeUsers: rift.users.size,
+    temperature: rift.temperature,
+    vibe: rift.vibeColor,
+    createdAt: rift.createdAt,
+    expiresAt: rift.expiresAt,
+    totalMessages: rift.messages.length,
+    peakUsers: rift.peakUsers,
+    isLive: true,
+  });
 }
 
 export function setupSocketHandlers(io: IOServer): void {
@@ -273,7 +304,21 @@ export function setupSocketHandlers(io: IOServer): void {
         return;
       }
 
-      const { riftId, userId } = parsed;
+      const { riftId, sessionToken } = parsed;
+      let claims;
+      try {
+        claims = verifyRiftSessionToken(sessionToken);
+      } catch {
+        emitRiftError(socket, "Invalid room session");
+        return;
+      }
+
+      if (claims.riftId !== riftId) {
+        emitRiftError(socket, "Room session mismatch");
+        return;
+      }
+
+      const userId = claims.sub;
       const rift = getRiftById(riftId);
       const user = getRiftUser(riftId, userId);
 
@@ -282,7 +327,7 @@ export function setupSocketHandlers(io: IOServer): void {
         return;
       }
 
-      socketToRift.set(socket.id, { riftId, userId });
+      socketToRift.set(socket.id, { riftId, userId, username: claims.username });
       socket.join(riftId);
 
       socket.emit("rift-state", {
@@ -311,16 +356,19 @@ export function setupSocketHandlers(io: IOServer): void {
       }
 
       ensureRiftSchedule(io, riftId);
+      syncPersistedRift(riftId);
       logger.info({ riftId, userId, username: user.username }, "User joined rift via socket");
     });
 
     socket.on("send-message", (payload) => {
       const parsed = parseMessagePayload(payload);
-      if (!parsed) {
+      const context = getSocketContext(socket.id);
+      if (!parsed || !context) {
         return;
       }
 
-      const { riftId, userId, content, isBurst } = parsed;
+      const { riftId, userId } = context;
+      const { content, isBurst } = parsed;
       const rift = getRiftById(riftId);
       const user = getRiftUser(riftId, userId);
 
@@ -334,6 +382,7 @@ export function setupSocketHandlers(io: IOServer): void {
       }
 
       const echoMatch = checkEchoMoment(rift, content, userId);
+      const resonanceChain = checkResonanceChain(rift, content, userId);
       const msg = addMessage(rift, userId, content, isBurst);
       if (!msg) {
         return;
@@ -366,10 +415,23 @@ export function setupSocketHandlers(io: IOServer): void {
         momentum: user.momentum,
         burstUsed: user.burstUsed,
       });
+      void recordMessage({
+        roomId: riftId,
+        userId,
+        username: user.username,
+        content: msg.content,
+        sentiment: msg.sentiment,
+        createdAt: msg.createdAt,
+        expiresAt: msg.expiresAt,
+        isBurst: msg.isBurst,
+      });
+      syncPersistedRift(riftId);
 
       emitTypingState(io, riftId);
 
       if (echoMatch) {
+        registerResonanceMoment(rift, [echoMatch.userId, msg.userId], "echo");
+        void recordResonance([echoMatch.userId, msg.userId]);
         setTimeout(() => {
           if (!getRiftById(riftId)) {
             return;
@@ -394,6 +456,29 @@ export function setupSocketHandlers(io: IOServer): void {
         }, 200);
       }
 
+      if (resonanceChain) {
+        registerResonanceMoment(rift, resonanceChain.participantIds, "chain");
+        void recordResonance(resonanceChain.participantIds);
+        io.to(riftId).emit("resonance-chain", {
+          participants: resonanceChain.participants,
+          sharedThought: resonanceChain.sharedThought,
+          achievement:
+            resonanceChain.participantIds.length >= 5
+              ? "HIVE MIND MOMENT"
+              : "Triple Resonance",
+          roomTemperatureBoost: 20,
+          messageBoostMultiplier: resonanceChain.participantIds.length >= 5 ? 1.8 : 1.5,
+          goldenAuraSeconds: 30,
+        });
+      }
+
+      io.to(riftId).emit("vibe-update", {
+        vibeColor: rift.vibeColor,
+        temperature: rift.temperature,
+        isChaosMode: rift.isChaosMode,
+      });
+      syncPersistedRift(riftId);
+
       const fadeDelay = msg.fadeStartAt.getTime() - Date.now();
       const expireDelay = msg.expiresAt.getTime() - Date.now();
 
@@ -404,11 +489,13 @@ export function setupSocketHandlers(io: IOServer): void {
 
     socket.on("drop-fragment", (payload) => {
       const parsed = parseFragmentPayload(payload);
-      if (!parsed) {
+      const context = getSocketContext(socket.id);
+      if (!parsed || !context) {
         return;
       }
 
-      const { riftId, userId, content } = parsed;
+      const { riftId, userId } = context;
+      const { content } = parsed;
       const rift = getRiftById(riftId);
       if (!rift || !getRiftUser(riftId, userId)) {
         return;
@@ -440,11 +527,13 @@ export function setupSocketHandlers(io: IOServer): void {
 
     socket.on("complete-fragment", (payload) => {
       const parsed = parseCompleteFragmentPayload(payload);
-      if (!parsed) {
+      const context = getSocketContext(socket.id);
+      if (!parsed || !context) {
         return;
       }
 
-      const { riftId, userId, fragmentId, completion } = parsed;
+      const { riftId, userId } = context;
+      const { fragmentId, completion } = parsed;
       const rift = getRiftById(riftId);
       if (!rift || !getRiftUser(riftId, userId)) {
         return;
@@ -487,6 +576,17 @@ export function setupSocketHandlers(io: IOServer): void {
         temperature: rift.temperature,
         isChaosMode: rift.isChaosMode,
       });
+      void recordMessage({
+        roomId: riftId,
+        userId,
+        username: msg.username,
+        content: msg.content,
+        sentiment: msg.sentiment,
+        createdAt: msg.createdAt,
+        expiresAt: msg.expiresAt,
+        isBurst: false,
+      });
+      syncPersistedRift(riftId);
 
       emitTypingState(io, riftId);
 
@@ -497,39 +597,40 @@ export function setupSocketHandlers(io: IOServer): void {
       }
     });
 
-    socket.on("typing-start", (payload) => {
-      const parsed = parsePresencePayload(payload);
-      if (!parsed || !getRiftUser(parsed.riftId, parsed.userId)) {
+    socket.on("typing-start", () => {
+      const context = getSocketContext(socket.id);
+      if (!context || !getRiftUser(context.riftId, context.userId)) {
         return;
       }
 
-      setUserTyping(parsed.riftId, parsed.userId, true);
-      emitTypingState(io, parsed.riftId);
+      setUserTyping(context.riftId, context.userId, true);
+      emitTypingState(io, context.riftId);
     });
 
-    socket.on("typing-stop", (payload) => {
-      const parsed = parsePresencePayload(payload);
-      if (!parsed || !getRiftUser(parsed.riftId, parsed.userId)) {
+    socket.on("typing-stop", () => {
+      const context = getSocketContext(socket.id);
+      if (!context || !getRiftUser(context.riftId, context.userId)) {
         return;
       }
 
-      setUserTyping(parsed.riftId, parsed.userId, false);
-      emitTypingState(io, parsed.riftId);
+      setUserTyping(context.riftId, context.userId, false);
+      emitTypingState(io, context.riftId);
     });
 
     socket.on("ghost-mode", (payload) => {
       const parsed = parseTogglePayload(payload, "isGhost");
-      if (!parsed || !getRiftUser(parsed.riftId, parsed.userId)) {
+      const context = getSocketContext(socket.id);
+      if (!parsed || !context || !getRiftUser(context.riftId, context.userId)) {
         return;
       }
 
-      setGhostMode(parsed.riftId, parsed.userId, parsed.value);
-      setUserTyping(parsed.riftId, parsed.userId, false);
-      io.to(parsed.riftId).emit("user-updated", {
-        userId: parsed.userId,
+      setGhostMode(context.riftId, context.userId, parsed.value);
+      setUserTyping(context.riftId, context.userId, false);
+      io.to(context.riftId).emit("user-updated", {
+        userId: context.userId,
         isGhost: parsed.value,
       });
-      emitTypingState(io, parsed.riftId);
+      emitTypingState(io, context.riftId);
     });
 
     socket.on("disconnect", () => {
@@ -541,28 +642,32 @@ export function setupSocketHandlers(io: IOServer): void {
       const { riftId, userId } = info;
       socketToRift.delete(socket.id);
 
-      const trail = removeUserFromRift(riftId, userId);
+      const result = removeUserFromRift(riftId, userId);
       const rift = getRiftById(riftId);
 
       socket.to(riftId).emit("user-left", { userId });
 
-      if (trail) {
+      if (result.trail) {
         socket.to(riftId).emit("ghost-trail", {
           trail: {
-            userId: trail.userId,
-            username: trail.username,
-            color: trail.color,
-            lastTopic: trail.lastTopic,
-            leftAt: trail.leftAt.toISOString(),
-            expiresAt: trail.expiresAt.toISOString(),
+            userId: result.trail.userId,
+            username: result.trail.username,
+            color: result.trail.color,
+            lastTopic: result.trail.lastTopic,
+            leftAt: result.trail.leftAt.toISOString(),
+            expiresAt: result.trail.expiresAt.toISOString(),
           },
         });
       }
 
       if (!rift) {
         clearRiftSchedule(riftId);
+        if (result.closedSnapshot) {
+          void finalizeClosedRoom(result.closedSnapshot);
+        }
       } else {
         emitTypingState(io, riftId);
+        syncPersistedRift(riftId);
       }
 
       logger.info({ riftId, userId }, "User left rift");

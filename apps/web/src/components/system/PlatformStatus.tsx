@@ -28,8 +28,8 @@ export function PlatformStatus({
     <motion.div
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
-      className="pointer-events-none z-20 w-full rounded-[28px] border border-white/10 bg-black/20 px-4 py-3 backdrop-blur-xl sm:px-5 sm:py-4"
-      style={{ boxShadow: `0 0 28px ${tone}22` }}
+      className="organism-node organism-node--quiet pointer-events-none z-20 w-full px-4 py-3 sm:px-5 sm:py-4"
+      style={{ boxShadow: `0 0 28px ${tone}22, var(--surface-shadow)` }}
     >
       <div className="flex items-center justify-between gap-4">
         <div>

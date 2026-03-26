@@ -55,6 +55,15 @@ export interface EchoMoment {
   mergedContent: string;
 }
 
+export interface ResonanceChain {
+  participants: Array<{ userId: string; username: string; userColor: string }>;
+  sharedThought: string;
+  achievement: string;
+  roomTemperatureBoost: number;
+  messageBoostMultiplier: number;
+  goldenAuraSeconds: number;
+}
+
 export interface RiftState {
   id: string;
   topic: string;
@@ -72,7 +81,8 @@ export function useSocketRift(
   userId: string | null,
   username: string | null,
   color: string | null,
-  isRadio: boolean
+  isRadio: boolean,
+  sessionToken: string | null,
 ) {
   const socketRef = useRef<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -86,13 +96,14 @@ export function useSocketRift(
   const [riftState, setRiftState] = useState<RiftState | null>(null);
   const [echoMoment, setEchoMoment] = useState<EchoMoment | null>(null);
   const [catalyst, setCatalyst] = useState<string | null>(null);
+  const [resonanceChain, setResonanceChain] = useState<ResonanceChain | null>(null);
   const [isLastWordGambit, setIsLastWordGambit] = useState(false);
   const [lastWordWinner, setLastWordWinner] = useState<string | null>(null);
   const [socketError, setSocketError] = useState<string | null>(null);
   const lastMessageRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!riftId || !userId || !username || !color) return;
+    if (!riftId || !userId || !username || !color || !sessionToken) return;
     installAudioUnlock();
     const socketOrigin = getRuntimeConfig().socketOrigin ?? "/";
 
@@ -107,7 +118,7 @@ export function useSocketRift(
     socket.on('connect', () => {
       setIsConnected(true);
       setSocketError(null);
-      socket.emit('join-rift', { riftId, userId });
+      socket.emit('join-rift', { riftId, sessionToken });
     });
 
     socket.on('disconnect', () => setIsConnected(false));
@@ -204,6 +215,13 @@ export function useSocketRift(
       setTimeout(() => setEchoMoment(null), 5000);
     });
 
+    socket.on('resonance-chain', (data: ResonanceChain) => {
+      setResonanceChain(data);
+      playAudio('echo', 'positive');
+      vibrate([80, 40, 80]);
+      setTimeout(() => setResonanceChain(null), 6500);
+    });
+
     socket.on('catalyst-drop', (data: { catalyst: string }) => {
       setCatalyst(data.catalyst);
       playAudio('catalyst', 'neutral');
@@ -244,39 +262,39 @@ export function useSocketRift(
       socket.disconnect();
       clearInterval(countdown);
     };
-  }, [riftId, userId, username, color, isRadio]);
+  }, [riftId, userId, username, color, isRadio, sessionToken]);
 
   const sendMessage = useCallback((content: string, isBurst = false) => {
     if (socketRef.current && content.trim()) {
-      socketRef.current.emit('send-message', { riftId, userId, content, isBurst });
+      socketRef.current.emit('send-message', { content, isBurst });
     }
-  }, [riftId, userId]);
+  }, []);
 
   const setTyping = useCallback((isTyping: boolean) => {
     if (socketRef.current) {
-      socketRef.current.emit(isTyping ? 'typing-start' : 'typing-stop', { riftId, userId });
+      socketRef.current.emit(isTyping ? 'typing-start' : 'typing-stop');
     }
-  }, [riftId, userId]);
+  }, []);
 
   const toggleGhostMode = useCallback((isGhost: boolean) => {
-    if (socketRef.current) socketRef.current.emit('ghost-mode', { riftId, userId, isGhost });
-  }, [riftId, userId]);
+    if (socketRef.current) socketRef.current.emit('ghost-mode', { isGhost });
+  }, []);
 
   const dropFragment = useCallback((content: string) => {
     if (socketRef.current && content.trim()) {
-      socketRef.current.emit('drop-fragment', { riftId, userId, content });
+      socketRef.current.emit('drop-fragment', { content });
     }
-  }, [riftId, userId]);
+  }, []);
 
   const completeFragment = useCallback((fragmentId: string, completion: string) => {
     if (socketRef.current && completion.trim()) {
-      socketRef.current.emit('complete-fragment', { riftId, userId, fragmentId, completion });
+      socketRef.current.emit('complete-fragment', { fragmentId, completion });
     }
-  }, [riftId, userId]);
+  }, []);
 
   return {
     isConnected, messages, users, fragments, ghostTrails, vibe, timeLeft,
-    isClosed, riftState, echoMoment, catalyst, isLastWordGambit, lastWordWinner, socketError,
+    isClosed, riftState, echoMoment, resonanceChain, catalyst, isLastWordGambit, lastWordWinner, socketError,
     sendMessage, setTyping, toggleGhostMode, dropFragment, completeFragment,
   };
 }

@@ -1,6 +1,7 @@
-import { setBaseUrl } from "@workspace/api-client-react";
+import { setAuthTokenGetter, setBaseUrl } from "@workspace/api-client-react";
+import { getAuthToken } from "./auth-session";
 
-const DEFAULT_REMOTE_ORIGIN = "https://7minutes-production.up.railway.app";
+const DEFAULT_REMOTE_ORIGIN = "https://api-production-a2c4.up.railway.app";
 
 export type RuntimeConfig = {
   apiBaseUrl: string | null;
@@ -44,6 +45,7 @@ export function getRuntimeConfig(): RuntimeConfig {
 export function configureApiClient() {
   const config = getRuntimeConfig();
   setBaseUrl(config.apiBaseUrl);
+  setAuthTokenGetter(getAuthToken);
   return config;
 }
 

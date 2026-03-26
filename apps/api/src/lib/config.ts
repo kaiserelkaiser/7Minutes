@@ -3,6 +3,8 @@ export const serverConfig = {
   port: parsePort(process.env["PORT"] ?? "3001"),
   corsOrigins: parseAllowedOrigins(process.env["CORS_ORIGINS"]),
   vercelProjectPrefix: process.env["CORS_VERCEL_PROJECT_PREFIX"]?.trim() || "7minutes-",
+  mongodbUrl: process.env["MONGODB_URL"]?.trim() || null,
+  jwtSecret: process.env["JWT_SECRET"]?.trim() || null,
 };
 
 export function isAllowedOrigin(origin: string): boolean {

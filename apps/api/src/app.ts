@@ -8,7 +8,7 @@ import { isAllowedOrigin, serverConfig } from "./lib/config";
 import { logger } from "./lib/logger";
 
 const app: Express = express();
-const frontendDist = path.resolve(globalThis.__dirname, "../../devether/dist/public");
+const frontendDist = path.resolve(globalThis.__dirname, "../../web/dist/public");
 
 app.use(
   pinoHttp({

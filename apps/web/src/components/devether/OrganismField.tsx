@@ -163,6 +163,18 @@ export function OrganismField({ topic, vibeColor, messages, users, fragments, gh
     return paths;
   }, [center, phase, visibleMessages]);
 
+  const membraneBands = useMemo(
+    () =>
+      Array.from({ length: 4 }, (_, index) => ({
+        radiusX: 140 + index * 42 + Math.sin(phase * (0.7 + index * 0.08)) * 10,
+        radiusY: 64 + index * 20 + Math.cos(phase * (0.9 + index * 0.12)) * 8,
+        opacity: 0.08 + index * 0.028,
+        rotation: phase * (4 + index * 1.4) + index * 18,
+        dash: index % 2 === 0 ? '8 18' : '2 14',
+      })),
+    [phase],
+  );
+
   return (
     <div ref={containerRef} className="absolute inset-0 overflow-hidden">
       <svg className="absolute inset-0 h-full w-full" aria-hidden="true">
@@ -170,6 +182,11 @@ export function OrganismField({ topic, vibeColor, messages, users, fragments, gh
           <radialGradient id="organism-core" cx="50%" cy="50%" r="50%">
             <stop offset="0%" stopColor="rgba(255,255,255,0.92)" />
             <stop offset="45%" stopColor={vibeColor} />
+            <stop offset="100%" stopColor="rgba(10,1,24,0)" />
+          </radialGradient>
+          <radialGradient id="membrane-wash" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="rgba(255,255,255,0.12)" />
+            <stop offset="46%" stopColor={vibeColor} stopOpacity="0.14" />
             <stop offset="100%" stopColor="rgba(10,1,24,0)" />
           </radialGradient>
           <filter id="field-glow" x="-120%" y="-120%" width="320%" height="320%">
@@ -190,6 +207,32 @@ export function OrganismField({ topic, vibeColor, messages, users, fragments, gh
           filter="url(#field-glow)"
         />
 
+        <ellipse
+          cx={center.x}
+          cy={center.y}
+          rx={Math.min(viewport.width, viewport.height) * 0.3}
+          ry={Math.min(viewport.width, viewport.height) * 0.12}
+          fill="url(#membrane-wash)"
+          opacity="0.12"
+          transform={`rotate(${Math.sin(phase * 0.3) * 8} ${center.x} ${center.y})`}
+        />
+
+        {membraneBands.map((band, index) => (
+          <ellipse
+            key={`band-${index}`}
+            cx={center.x}
+            cy={center.y}
+            rx={band.radiusX}
+            ry={band.radiusY}
+            fill="none"
+            stroke={vibeColor}
+            strokeOpacity={band.opacity}
+            strokeDasharray={band.dash}
+            strokeWidth={index === 0 ? 1.4 : 1}
+            transform={`rotate(${band.rotation} ${center.x} ${center.y})`}
+          />
+        ))}
+
         {connectionPaths.map((path, index) => (
           <path
             key={`${path.d}-${index}`}
@@ -203,6 +246,15 @@ export function OrganismField({ topic, vibeColor, messages, users, fragments, gh
         ))}
 
         <circle cx={center.x} cy={center.y} r="68" fill="url(#organism-core)" opacity="0.22" />
+        <circle cx={center.x} cy={center.y} r="102" fill="none" stroke={vibeColor} strokeOpacity="0.18" strokeDasharray="6 20" />
+        <circle
+          cx={center.x}
+          cy={center.y}
+          r={34 + Math.sin(phase * 2) * 4}
+          fill="none"
+          stroke="rgba(255,255,255,0.26)"
+          strokeOpacity="0.36"
+        />
         <circle cx={center.x} cy={center.y} r="18" fill="rgba(255,255,255,0.78)" />
       </svg>
 
@@ -285,6 +337,15 @@ export function OrganismField({ topic, vibeColor, messages, users, fragments, gh
             style={{ left: x, top: y }}
           >
             <div
+              className="absolute -inset-8 rounded-full"
+              style={{
+                background: `radial-gradient(circle, ${user.color}22 0%, transparent 72%)`,
+                opacity: user.isGhost ? 0.18 : 0.52,
+                transform: `scale(${1 + Math.sin(phase * 2 + x * 0.01) * 0.08})`,
+                filter: 'blur(10px)',
+              }}
+            />
+            <div
               className="relative rounded-full"
               style={{
                 width: 28 + user.momentum * 0.18,
@@ -295,11 +356,33 @@ export function OrganismField({ topic, vibeColor, messages, users, fragments, gh
                 background: `radial-gradient(circle, ${user.color}55 0%, transparent 70%)`,
               }}
             >
+              <span
+                className="absolute inset-[-9px] rounded-full"
+                style={{
+                  border: `1px solid ${user.color}`,
+                  opacity: user.isGhost ? 0.18 : 0.26,
+                  transform: `scale(${1.08 + Math.sin(phase * 1.8 + y * 0.01) * 0.08})`,
+                }}
+              />
               {user.isTyping && (
-                <span
-                  className="absolute inset-[-6px] rounded-full"
-                  style={{ border: `1px solid ${user.color}`, opacity: 0.55 }}
-                />
+                <>
+                  <span
+                    className="absolute inset-[-6px] rounded-full"
+                    style={{
+                      border: `1px solid ${user.color}`,
+                      opacity: 0.55,
+                      transform: `scale(${1.05 + Math.sin(phase * 4) * 0.08})`,
+                    }}
+                  />
+                  <span
+                    className="absolute inset-[-14px] rounded-full"
+                    style={{
+                      border: `1px solid ${user.color}`,
+                      opacity: 0.24,
+                      transform: `scale(${1.18 + Math.cos(phase * 3.2) * 0.12})`,
+                    }}
+                  />
+                </>
               )}
             </div>
             <div className="mt-2 font-mono text-[10px] uppercase tracking-[0.28em] text-white/35">
@@ -326,6 +409,9 @@ export function OrganismField({ topic, vibeColor, messages, users, fragments, gh
 
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-center text-white/22">
           <div className="font-display text-[clamp(1.8rem,5vw,4rem)] uppercase tracking-[0.35em]">{topic}</div>
+          <div className="mt-2 font-mono text-[10px] uppercase tracking-[0.42em] text-white/18">
+            living membrane
+          </div>
         </div>
       </div>
     </div>

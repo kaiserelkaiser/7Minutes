@@ -1,16 +1,22 @@
 openapi: 3.1.0
 info:
   title: Api
-  version: 0.2.0
-  description: DevEther API specification
+  version: 0.3.0
+  description: 7MINUTES API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Identity and session operations
   - name: rifts
     description: Rift room operations
+  - name: presence
+    description: Live social proof and discovery operations
+  - name: users
+    description: User and social graph operations
 paths:
   /healthz:
     get:
@@ -24,6 +30,212 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /auth/register:
+    post:
+      operationId: registerUser
+      tags: [auth]
+      summary: Create a persistent user identity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "200":
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Username already taken
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /auth/login:
+    post:
+      operationId: loginUser
+      tags: [auth]
+      summary: Restore a user session by username
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Logged in successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /auth/me:
+    get:
+      operationId: getCurrentUser
+      tags: [auth]
+      summary: Read the authenticated user profile summary
+      responses:
+        "200":
+          description: Authenticated user summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /auth/home-feed:
+    get:
+      operationId: getHomeFeed
+      tags: [auth]
+      summary: Read the authenticated home feed with recent highlights and missed moments
+      responses:
+        "200":
+          description: Home feed for the authenticated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HomeFeed"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /auth/echoes/{echoId}/view:
+    post:
+      operationId: markRoomEchoViewed
+      tags: [auth]
+      summary: Consume a one-time room echo replay
+      parameters:
+        - in: path
+          name: echoId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Echo marked as viewed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarkEchoViewedResponse"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Echo not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /presence:
+    get:
+      operationId: getPresenceSnapshot
+      tags: [presence]
+      summary: Read the live social proof snapshot for the landing page
+      responses:
+        "200":
+          description: Presence snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PresenceSnapshot"
+  /leaderboard/inviters:
+    get:
+      operationId: getInviterLeaderboard
+      tags: [leaderboard]
+      summary: Read the weekly top inviters leaderboard
+      responses:
+        "200":
+          description: Inviter leaderboard
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  inviters:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/InviterLeaderboardEntry"
+                required:
+                  - inviters
+  /rooms/upcoming:
+    get:
+      operationId: listScheduledRooms
+      tags: [rooms]
+      summary: List upcoming scheduled rooms
+      responses:
+        "200":
+          description: Upcoming scheduled rooms
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rooms:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ScheduledRoom"
+                required:
+                  - rooms
+  /rooms/schedule:
+    post:
+      operationId: scheduleRoom
+      tags: [rooms]
+      summary: Schedule a future time capsule room
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScheduleRoomRequest"
+      responses:
+        "201":
+          description: Room scheduled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScheduledRoom"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /rifts:
     get:
       operationId: listRifts
@@ -63,6 +275,66 @@ paths:
                 $ref: "#/components/schemas/JoinRiftResponse"
         "400":
           description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /users/{username}:
+    get:
+      operationId: getUserProfile
+      tags: [users]
+      summary: Read a public user profile
+      parameters:
+        - in: path
+          name: username
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /users/{username}/follow:
+    post:
+      operationId: followUser
+      tags: [users]
+      summary: Follow a user to keep track of their future room activity
+      parameters:
+        - in: path
+          name: username
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Follow state updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FollowResponse"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: User not found
           content:
             application/json:
               schema:
@@ -112,6 +384,88 @@ components:
         - vibeColor
         - temperature
         - isChaosMode
+    RegisterRequest:
+      type: object
+      properties:
+        username:
+          type: string
+        inviteCode:
+          type: string
+        interests:
+          type: array
+          items:
+            type: string
+      required:
+        - username
+    LoginRequest:
+      type: object
+      properties:
+        username:
+          type: string
+      required:
+        - username
+    AuthUser:
+      type: object
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        colorSignature:
+          type: string
+        inviteCode:
+          type: string
+        invitedByUsername:
+          oneOf:
+            - type: string
+            - type: "null"
+        reputation:
+          type: integer
+        totalRoomsJoined:
+          type: integer
+        totalResonances:
+          type: integer
+        followerCount:
+          type: integer
+        verified:
+          type: boolean
+        verificationTier:
+          oneOf:
+            - $ref: "#/components/schemas/VerificationTier"
+            - type: "null"
+        currentStreak:
+          type: integer
+        creatureStage:
+          type: integer
+        interests:
+          type: array
+          items:
+            type: string
+      required:
+        - id
+        - username
+        - colorSignature
+        - inviteCode
+        - invitedByUsername
+        - reputation
+        - totalRoomsJoined
+        - totalResonances
+        - followerCount
+        - verified
+        - verificationTier
+        - currentStreak
+        - creatureStage
+        - interests
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/AuthUser"
+      required:
+        - token
+        - user
     JoinRiftRequest:
       type: object
       properties:
@@ -139,6 +493,8 @@ components:
           type: string
         asRadio:
           type: boolean
+        sessionToken:
+          type: string
         rift:
           $ref: "#/components/schemas/Rift"
       required:
@@ -146,7 +502,535 @@ components:
         - userId
         - userColor
         - asRadio
+        - sessionToken
         - rift
+    Badge:
+      type: object
+      properties:
+        type:
+          type: string
+        tier:
+          type: string
+        count:
+          type: integer
+        unlockedAt:
+          type: string
+          format: date-time
+      required:
+        - type
+        - tier
+        - count
+        - unlockedAt
+    MemoryPreview:
+      type: object
+      properties:
+        id:
+          type: string
+        essence:
+          type: string
+        roomTopic:
+          type: string
+        bestMoment:
+          type: string
+        participantCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - essence
+        - roomTopic
+        - bestMoment
+        - participantCount
+        - createdAt
+    UserProfile:
+      type: object
+      properties:
+        username:
+          type: string
+        colorSignature:
+          type: string
+        reputation:
+          type: integer
+        invitedByUsername:
+          oneOf:
+            - type: string
+            - type: "null"
+        verified:
+          type: boolean
+        verificationTier:
+          oneOf:
+            - $ref: "#/components/schemas/VerificationTier"
+            - type: "null"
+        followerCount:
+          type: integer
+        creatureStage:
+          type: integer
+        isFollowing:
+          type: boolean
+        inviteStats:
+          $ref: "#/components/schemas/InviteStats"
+        badges:
+          type: array
+          items:
+            $ref: "#/components/schemas/Badge"
+        stats:
+          type: object
+          properties:
+            roomsJoined:
+              type: integer
+            resonancesTriggered:
+              type: integer
+            currentStreak:
+              type: integer
+          required:
+            - roomsJoined
+            - resonancesTriggered
+            - currentStreak
+        recentMemories:
+          type: array
+          items:
+            $ref: "#/components/schemas/MemoryPreview"
+      required:
+        - username
+        - colorSignature
+        - reputation
+        - invitedByUsername
+        - verified
+        - verificationTier
+        - followerCount
+        - creatureStage
+        - isFollowing
+        - inviteStats
+        - badges
+        - stats
+        - recentMemories
+    FollowResponse:
+      type: object
+      properties:
+        following:
+          type: boolean
+      required:
+        - following
+    TrendingTopic:
+      type: object
+      properties:
+        topic:
+          type: string
+        roomCount:
+          type: integer
+        totalUsers:
+          type: integer
+        heat:
+          type: number
+      required:
+        - topic
+        - roomCount
+        - totalUsers
+        - heat
+    FriendPresence:
+      type: object
+      properties:
+        userId:
+          type: string
+        username:
+          type: string
+        colorSignature:
+          type: string
+        roomId:
+          type: string
+        roomTopic:
+          type: string
+        roomUserCount:
+          type: integer
+        roomMaxUsers:
+          type: integer
+        timeLeftSeconds:
+          type: integer
+        joinable:
+          type: boolean
+      required:
+        - userId
+        - username
+        - colorSignature
+        - roomId
+        - roomTopic
+        - roomUserCount
+        - roomMaxUsers
+        - timeLeftSeconds
+        - joinable
+    CelebrityAlert:
+      type: object
+      properties:
+        username:
+          type: string
+        roomId:
+          type: string
+        room:
+          type: string
+        joinable:
+          type: boolean
+        reputation:
+          type: integer
+        verificationTier:
+          $ref: "#/components/schemas/VerificationTier"
+        spotsLeft:
+          type: integer
+      required:
+        - username
+        - roomId
+        - room
+        - joinable
+        - reputation
+        - verificationTier
+        - spotsLeft
+    FeaturedRoom:
+      type: object
+      properties:
+        roomId:
+          type: string
+        topic:
+          type: string
+        username:
+          type: string
+        verificationTier:
+          $ref: "#/components/schemas/VerificationTier"
+        userCount:
+          type: integer
+        maxUsers:
+          type: integer
+        spotsLeft:
+          type: integer
+        joinable:
+          type: boolean
+        timeLeftSeconds:
+          type: integer
+      required:
+        - roomId
+        - topic
+        - username
+        - verificationTier
+        - userCount
+        - maxUsers
+        - spotsLeft
+        - joinable
+        - timeLeftSeconds
+    PresenceSnapshot:
+      type: object
+      properties:
+        onlineNow:
+          type: integer
+        activeRooms:
+          type: integer
+        trendingTopics:
+          type: array
+          items:
+            $ref: "#/components/schemas/TrendingTopic"
+        celebrityAlert:
+          oneOf:
+            - $ref: "#/components/schemas/CelebrityAlert"
+            - type: "null"
+        friendsOnline:
+          type: array
+          items:
+            $ref: "#/components/schemas/FriendPresence"
+        featuredRooms:
+          type: array
+          items:
+            $ref: "#/components/schemas/FeaturedRoom"
+      required:
+        - onlineNow
+        - activeRooms
+        - trendingTopics
+        - celebrityAlert
+        - friendsOnline
+        - featuredRooms
+    VerificationTier:
+      type: string
+      enum:
+        - creator
+        - celebrity
+        - founder
+    InviteStats:
+      type: object
+      properties:
+        totalInvites:
+          type: integer
+        activeInvites:
+          type: integer
+        points:
+          type: integer
+        reward:
+          type: string
+      required:
+        - totalInvites
+        - activeInvites
+        - points
+        - reward
+    InviterLeaderboardEntry:
+      type: object
+      properties:
+        userId:
+          type: string
+        username:
+          type: string
+        colorSignature:
+          type: string
+        verificationTier:
+          oneOf:
+            - $ref: "#/components/schemas/VerificationTier"
+            - type: "null"
+        totalInvites:
+          type: integer
+        activeInvites:
+          type: integer
+        points:
+          type: integer
+        reward:
+          type: string
+      required:
+        - userId
+        - username
+        - colorSignature
+        - verificationTier
+        - totalInvites
+        - activeInvites
+        - points
+        - reward
+    ScheduleRoomRequest:
+      type: object
+      properties:
+        topic:
+          type: string
+        scheduledFor:
+          type: string
+          format: date-time
+        description:
+          type: string
+        isPublic:
+          type: boolean
+        maxUsers:
+          type: integer
+        reminderEnabled:
+          type: boolean
+        kind:
+          type: string
+          enum:
+            - ama
+            - launch-party
+            - watch-party
+            - study-session
+            - open
+      required:
+        - topic
+        - scheduledFor
+    ScheduledRoom:
+      type: object
+      properties:
+        id:
+          type: string
+        topic:
+          type: string
+        description:
+          type: string
+        kind:
+          type: string
+          enum:
+            - ama
+            - launch-party
+            - watch-party
+            - study-session
+            - open
+        scheduledFor:
+          type: string
+          format: date-time
+        isPublic:
+          type: boolean
+        maxUsers:
+          type: integer
+        reminderEnabled:
+          type: boolean
+        creatorUsername:
+          type: string
+        creatorColorSignature:
+          type: string
+        creatorVerificationTier:
+          oneOf:
+            - $ref: "#/components/schemas/VerificationTier"
+            - type: "null"
+      required:
+        - id
+        - topic
+        - description
+        - kind
+        - scheduledFor
+        - isPublic
+        - maxUsers
+        - reminderEnabled
+        - creatorUsername
+        - creatorColorSignature
+        - creatorVerificationTier
+    HighlightMoment:
+      type: object
+      properties:
+        timestamp:
+          type: string
+        quote:
+          type: string
+        context:
+          type: string
+        reactions:
+          type: array
+          items:
+            type: string
+      required:
+        - timestamp
+        - quote
+        - context
+        - reactions
+    ShareCard:
+      type: object
+      properties:
+        id:
+          type: string
+        roomId:
+          type: string
+        gradient:
+          type: array
+          items:
+            type: string
+        bestQuote:
+          type: string
+        speaker:
+          type: string
+        context:
+          type: string
+        participants:
+          type: array
+          items:
+            type: string
+        resonanceMoments:
+          type: integer
+        roomVibe:
+          type: string
+        shareUrl:
+          type: string
+      required:
+        - id
+        - roomId
+        - gradient
+        - bestQuote
+        - speaker
+        - context
+        - participants
+        - resonanceMoments
+        - roomVibe
+        - shareUrl
+    HighlightStats:
+      type: object
+      properties:
+        totalMessages:
+          type: integer
+        wordsSaved:
+          type: integer
+        laughsMoment:
+          type: string
+        deepestDive:
+          type: string
+      required:
+        - totalMessages
+        - wordsSaved
+        - laughsMoment
+        - deepestDive
+    HighlightReel:
+      type: object
+      properties:
+        id:
+          type: string
+        roomId:
+          type: string
+        roomTopic:
+          type: string
+        vibeLabel:
+          type: string
+        bestMoments:
+          type: array
+          items:
+            $ref: "#/components/schemas/HighlightMoment"
+        stats:
+          $ref: "#/components/schemas/HighlightStats"
+        shareCard:
+          $ref: "#/components/schemas/ShareCard"
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - roomId
+        - roomTopic
+        - vibeLabel
+        - bestMoments
+        - stats
+        - shareCard
+        - createdAt
+    RoomEcho:
+      type: object
+      properties:
+        id:
+          type: string
+        roomId:
+          type: string
+        title:
+          type: string
+        body:
+          type: string
+        finalMoments:
+          type: array
+          items:
+            type: string
+        resonanceMoment:
+          type: boolean
+        catalystDropped:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - roomId
+        - title
+        - body
+        - finalMoments
+        - resonanceMoment
+        - catalystDropped
+        - createdAt
+    HomeFeed:
+      type: object
+      properties:
+        highlights:
+          type: array
+          items:
+            $ref: "#/components/schemas/HighlightReel"
+        roomEchoes:
+          type: array
+          items:
+            $ref: "#/components/schemas/RoomEcho"
+        shareCards:
+          type: array
+          items:
+            $ref: "#/components/schemas/ShareCard"
+      required:
+        - highlights
+        - roomEchoes
+        - shareCards
+    MarkEchoViewedResponse:
+      type: object
+      properties:
+        viewed:
+          type: boolean
+      required:
+        - viewed
     ErrorResponse:
       type: object
       properties:

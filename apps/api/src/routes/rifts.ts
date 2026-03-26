@@ -10,6 +10,8 @@ import {
   getActiveRifts,
   MAX_USERS_PER_RIFT,
 } from "../lib/riftManager";
+import { signRiftSessionToken } from "../lib/auth";
+import { recordRoomJoin, syncRoomSnapshot } from "../lib/persistence";
 
 const router: IRouter = Router();
 const MAX_USERNAME_LENGTH = 20;
@@ -42,7 +44,8 @@ router.post("/rifts/join", (req, res) => {
   }
 
   const { username, topic, riftId, quantum, asRadio } = parseResult.data;
-  const trimmedUsername = (username || "").trim().slice(0, MAX_USERNAME_LENGTH);
+  const authUser = req.auth;
+  const trimmedUsername = (authUser?.username ?? username ?? "").trim().slice(0, MAX_USERNAME_LENGTH);
   const trimmedTopic = (topic || "").trim().slice(0, MAX_TOPIC_LENGTH);
 
   if (!trimmedUsername) {
@@ -61,17 +64,40 @@ router.post("/rifts/join", (req, res) => {
     return;
   }
 
-  const user = addUserToRift(rift, trimmedUsername, !!asRadio);
+  const user = addUserToRift(rift, trimmedUsername, !!asRadio, {
+    userId: authUser?.userId,
+  });
   if (!user) {
     res.status(400).json({ error: "Rift is full" });
     return;
   }
+
+  void syncRoomSnapshot({
+    id: rift.id,
+    topic: rift.revealedTopic ?? rift.topic,
+    type: rift.isQuantum ? "quantum" : "standard",
+    activeUsers: rift.users.size,
+    temperature: rift.temperature,
+    vibe: rift.vibeColor,
+    createdAt: rift.createdAt,
+    expiresAt: rift.expiresAt,
+    totalMessages: rift.messages.length,
+    peakUsers: rift.peakUsers,
+    isLive: true,
+  });
+
+  if (authUser?.userId) {
+    void recordRoomJoin(authUser.userId, trimmedTopic);
+  }
+
+  const sessionToken = signRiftSessionToken(user.id, user.username, rift.id);
 
   const data = JoinRiftResponse.parse({
     riftId: rift.id,
     userId: user.id,
     userColor: user.color,
     asRadio: !!asRadio,
+    sessionToken,
     rift: {
       id: rift.id,
       topic: rift.topic,
