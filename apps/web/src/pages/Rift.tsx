@@ -187,15 +187,15 @@ export default function Rift() {
       />
 
       <div className="absolute left-4 top-4 z-[150] flex max-w-[min(92vw,24rem)] flex-col gap-3 sm:left-8 sm:top-8 sm:max-w-[25rem]">
-        <div className="rift-node px-4 py-4 sm:px-5">
+        <div className="clean-panel px-4 py-4 sm:px-5">
           <div className="font-mono text-[10px] uppercase tracking-[0.56em] text-white/30">organism status</div>
           <h1 className="mt-3 font-display text-[clamp(1.4rem,3vw,3rem)] uppercase tracking-[0.18em] text-white">
             {topic}
           </h1>
           <div className="mt-3 flex flex-wrap gap-2 text-[10px] uppercase tracking-[0.28em] text-white/50">
-            <span className="rift-control-chip px-3 py-1.5">{visibleUsers} visible minds</span>
-            <span className="rift-control-chip px-3 py-1.5">heat {Math.round(temperature)}</span>
-            <span className="rift-control-chip px-3 py-1.5">{isChaos ? 'chaos surge' : 'stable drift'}</span>
+            <span className="simple-chip">{visibleUsers} visible minds</span>
+            <span className="simple-chip">heat {Math.round(temperature)}</span>
+            <span className="simple-chip">{isChaos ? 'chaos surge' : 'stable drift'}</span>
           </div>
           <div className="mt-3 text-sm leading-6 text-white/58">
             {activeTypers > 0
@@ -204,7 +204,7 @@ export default function Rift() {
           </div>
         </div>
 
-        <div className="rift-node px-4 py-3 text-xs leading-6 text-white/54 sm:px-5">
+        <div className="clean-panel-soft px-4 py-3 text-xs leading-6 text-white/54 sm:px-5">
           <div className="font-mono text-[10px] uppercase tracking-[0.48em] text-white/28">interaction physics</div>
           <div className="mt-2">
             Type anywhere. Enter births a thought. Tab releases smoke fragments. Escape clears the current manifestation.
@@ -213,7 +213,7 @@ export default function Rift() {
       </div>
 
       <div className="pointer-events-none absolute left-1/2 top-1/2 z-[150] -translate-x-1/2 -translate-y-1/2">
-        <div className="temporal-nucleus flex h-[238px] w-[238px] items-center justify-center sm:h-[300px] sm:w-[300px]">
+        <div className="flex h-[238px] w-[238px] items-center justify-center sm:h-[300px] sm:w-[300px]">
           <svg width="280" height="280" viewBox="0 0 280 280" className="h-[220px] w-[220px] overflow-visible sm:h-[280px] sm:w-[280px]">
             <circle cx="140" cy="140" r="118" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
             <circle
@@ -263,7 +263,7 @@ export default function Rift() {
       </div>
 
       <div className="absolute right-4 top-4 z-[160] flex w-[min(92vw,21rem)] flex-col gap-3 sm:right-8 sm:top-8 sm:w-[22rem]">
-        <div className="rift-node px-4 py-4 sm:px-5">
+        <div className="clean-panel px-4 py-4 sm:px-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <div className="font-mono text-[10px] uppercase tracking-[0.5em] text-white/30">your aura</div>
@@ -289,7 +289,7 @@ export default function Rift() {
                 setIsGhostMode(next);
                 toggleGhostMode(next);
               }}
-              className="pointer-events-auto plasma-button plasma-button--ghost px-4 py-2 text-white/82"
+              className="pointer-events-auto control-button px-4 py-2 text-xs uppercase tracking-[0.28em]"
               style={{
                 borderColor: isGhostMode ? session.color : 'rgba(255,255,255,0.12)',
                 color: isGhostMode ? '#ffffff' : 'rgba(255,255,255,0.74)',
@@ -298,16 +298,16 @@ export default function Rift() {
             >
               {isGhostMode ? 'ghost wireframe' : 'solid aura'}
             </button>
-            <div className="rift-control-chip px-3 py-2 text-[10px] uppercase tracking-[0.28em] text-white/50">
+            <div className="simple-chip">
               {burstAvailable ? 'burst ready' : 'burst spent'}
             </div>
-            <div className="rift-control-chip px-3 py-2 text-[10px] uppercase tracking-[0.28em] text-white/50">
+            <div className="simple-chip">
               {messages.length} transmissions
             </div>
           </div>
         </div>
 
-        <div className="rift-node px-4 py-3 sm:px-5">
+        <div className="clean-panel-soft px-4 py-3 sm:px-5">
           {!isConnected && (
             <div className="font-mono text-[10px] uppercase tracking-[0.45em] text-red-300/74">
               reconnecting to the organism
@@ -326,7 +326,7 @@ export default function Rift() {
       </div>
 
       <div className="absolute bottom-4 left-4 z-[150] max-w-[min(92vw,24rem)] sm:bottom-8 sm:left-8">
-        <div className="rift-node px-4 py-3 text-xs leading-6 text-white/52 sm:px-5">
+        <div className="clean-panel-soft px-4 py-3 text-xs leading-6 text-white/52 sm:px-5">
           <div className="font-mono text-[10px] uppercase tracking-[0.48em] text-white/26">conversation current</div>
           <div className="mt-2">
             {isRadio
@@ -353,7 +353,7 @@ export default function Rift() {
             className="pointer-events-none absolute left-1/2 top-28 z-[170] -translate-x-1/2 text-center"
           >
             <div className="mx-auto h-6 w-6 rounded-full bg-white/90 shadow-[0_0_30px_rgba(255,255,255,0.8)]" />
-            <div className="organism-node organism-node--hero mt-6 max-w-lg px-8 py-6">
+            <div className="clean-panel mt-6 max-w-lg px-8 py-6">
               <div className="font-mono text-[10px] uppercase tracking-[0.55em] text-white/38">catalyst bomb</div>
               <div className="mt-4 text-lg leading-8 text-white/88">{catalyst}</div>
             </div>
@@ -369,7 +369,7 @@ export default function Rift() {
             exit={{ opacity: 0, scale: 1.2 }}
             className="pointer-events-none absolute inset-0 z-[180] flex items-center justify-center"
           >
-            <div className="organism-node organism-node--hero max-w-[min(82vw,46rem)] px-8 py-7 text-center">
+            <div className="clean-panel max-w-[min(82vw,46rem)] px-8 py-7 text-center">
               <div className="font-mono text-[11px] uppercase tracking-[0.6em] text-white/40">resonance moment</div>
               <div className="mt-6 text-[clamp(2rem,4.5vw,4rem)] font-semibold leading-tight text-white [text-shadow:0_0_42px_rgba(255,255,255,0.42)]">
                 {echoMoment.mergedContent}
@@ -390,7 +390,7 @@ export default function Rift() {
             exit={{ opacity: 0, scale: 1.15 }}
             className="pointer-events-none absolute inset-0 z-[185] flex items-center justify-center"
           >
-            <div className="organism-node organism-node--hero max-w-[min(82vw,44rem)] px-8 py-7 text-center shadow-[0_0_70px_rgba(255,226,122,0.28)]">
+            <div className="clean-panel max-w-[min(82vw,44rem)] px-8 py-7 text-center shadow-[0_0_70px_rgba(255,226,122,0.28)]">
               <div className="font-mono text-[11px] uppercase tracking-[0.55em] text-[#ffe27a]/72">
                 {resonanceChain.achievement}
               </div>
@@ -415,7 +415,7 @@ export default function Rift() {
             animate={{ opacity: 1 }}
             className="absolute inset-0 z-[220] flex items-center justify-center bg-[#030109]/92"
           >
-            <div className="organism-node organism-node--hero px-10 py-10 text-center">
+            <div className="clean-panel px-10 py-10 text-center">
               <motion.div
                 animate={{ scale: [1, 0.2, 0], opacity: [1, 1, 0] }}
                 transition={{ duration: 2.4, ease: 'easeIn' }}
