@@ -44,6 +44,7 @@ function hexToRgb(color: string): [number, number, number] {
 export function RoomUniverse({ rooms, hoveredRoomId, onHover, onSelect }: RoomUniverseProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const frameRef = useRef<number>(0);
+  const pointerFrameRef = useRef<number | null>(null);
   const pointerRef = useRef({ x: 0.5, y: 0.5 });
   const hitZonesRef = useRef<PlanetHitZone[]>([]);
   const roomsRef = useRef<UniverseRoom[]>(rooms);
@@ -58,8 +59,8 @@ export function RoomUniverse({ rooms, hoveredRoomId, onHover, onSelect }: RoomUn
   }, [hoveredRoomId]);
 
   const ambientSeeds = useMemo(
-    () => Array.from({ length: 75 }, (_, index) => ({
-      offset: index / 75,
+    () => Array.from({ length: 36 }, (_, index) => ({
+      offset: index / 36,
       depth: 0.15 + (index % 8) * 0.08,
       sparkle: 0.4 + (index % 5) * 0.1,
     })),
@@ -225,6 +226,7 @@ export function RoomUniverse({ rooms, hoveredRoomId, onHover, onSelect }: RoomUn
 
     return () => {
       cancelAnimationFrame(frameRef.current);
+      if (pointerFrameRef.current !== null) cancelAnimationFrame(pointerFrameRef.current);
       window.removeEventListener('resize', resize);
     };
   }, [ambientSeeds]);
@@ -233,20 +235,29 @@ export function RoomUniverse({ rooms, hoveredRoomId, onHover, onSelect }: RoomUn
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
-    const x = (event.clientX - rect.left) / rect.width;
-    const y = (event.clientY - rect.top) / rect.height;
-    pointerRef.current = { x, y };
+    if (pointerFrameRef.current !== null) return;
 
-    const hit = hitZonesRef.current.find((zone) => {
-      const dx = event.clientX - rect.left - zone.x;
-      const dy = event.clientY - rect.top - zone.y;
-      return Math.sqrt(dx * dx + dy * dy) <= zone.radius;
+    pointerFrameRef.current = requestAnimationFrame(() => {
+      pointerFrameRef.current = null;
+      const x = (event.clientX - rect.left) / rect.width;
+      const y = (event.clientY - rect.top) / rect.height;
+      pointerRef.current = { x, y };
+
+      const hit = hitZonesRef.current.find((zone) => {
+        const dx = event.clientX - rect.left - zone.x;
+        const dy = event.clientY - rect.top - zone.y;
+        return Math.sqrt(dx * dx + dy * dy) <= zone.radius;
+      });
+
+      onHover(hit?.roomId ?? null);
     });
-
-    onHover(hit?.roomId ?? null);
   }, [onHover]);
 
   const handlePointerLeave = useCallback(() => {
+    if (pointerFrameRef.current !== null) {
+      cancelAnimationFrame(pointerFrameRef.current);
+      pointerFrameRef.current = null;
+    }
     onHover(null);
   }, [onHover]);
 

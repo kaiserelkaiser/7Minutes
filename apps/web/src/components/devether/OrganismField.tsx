@@ -1,12 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Fragment, GhostTrail, RiftMessage, RiftUser } from '@/hooks/use-socket';
 import {
   buildConnectionPath,
   buildOrganicPath,
   clamp,
-  colorFromString,
   hashString,
-  lerp,
   messageAgeProgress,
 } from '@/lib/sevenMinutes';
 
@@ -28,28 +26,24 @@ interface PositionedBlob {
   path: string;
   opacity: number;
   age: number;
+  driftDuration: number;
+  driftDelay: number;
 }
 
-function glitchText(content: string, stage: number, phase: number) {
+function glitchText(content: string, stage: number) {
   if (stage < 3) return content;
   const glyphs = ['#', '?', '*', '~', '/'];
   return content
     .split('')
     .map((character, index) => {
       if (character === ' ') return ' ';
-      if ((Math.sin(phase * 2.6 + index) + 1) / 2 > 0.78 - stage * 0.08) {
-        return glyphs[(index + stage) % glyphs.length];
-      }
-      return character;
+      return index % 3 === 0 ? glyphs[index % glyphs.length] : character;
     })
     .join('');
 }
 
 export function OrganismField({ topic, vibeColor, messages, users, fragments, ghostTrails }: OrganismFieldProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
-  const [phase, setPhase] = useState(0);
-  const [pointer, setPointer] = useState({ x: 0.5, y: 0.5 });
 
   useEffect(() => {
     const measure = () => {
@@ -61,47 +55,37 @@ export function OrganismField({ topic, vibeColor, messages, users, fragments, gh
     return () => window.removeEventListener('resize', measure);
   }, []);
 
-  useEffect(() => {
-    let frame = 0;
-    const animate = () => {
-      setPhase(performance.now() / 1000);
-      frame = requestAnimationFrame(animate);
-    };
-    frame = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(frame);
-  }, []);
-
-  useEffect(() => {
-    const handleMove = (event: MouseEvent) => {
-      setPointer({ x: event.clientX / window.innerWidth, y: event.clientY / window.innerHeight });
-    };
-
-    window.addEventListener('mousemove', handleMove);
-    return () => window.removeEventListener('mousemove', handleMove);
-  }, []);
-
   const center = useMemo(
     () => ({
-      x: viewport.width / 2 + (pointer.x - 0.5) * 50,
-      y: viewport.height / 2 + (pointer.y - 0.5) * 20,
+      x: viewport.width / 2,
+      y: viewport.height / 2,
     }),
-    [pointer.x, pointer.y, viewport.height, viewport.width],
+    [viewport.height, viewport.width],
   );
 
   const visibleMessages = useMemo<PositionedBlob[]>(() => {
     const now = Date.now();
-    const sample = messages.slice(-18);
+    const sample = messages.slice(-14);
 
     return sample.map((message, index) => {
       const hash = Math.abs(hashString(message.id));
       const age = messageAgeProgress(message.createdAt, message.expiresAt, now);
-      const angle = hash * 0.0009 + phase * (0.12 + (hash % 9) * 0.01) + index * 0.45;
-      const ring = 150 + (index % 6) * 54 + age * 34;
-      const width = clamp(120 + message.content.length * 1.9, 140, 300);
-      const height = clamp(82 + message.content.length * 0.7, 92, 188);
-      const x = center.x + Math.cos(angle) * ring + (pointer.x - 0.5) * 90;
-      const y = center.y + Math.sin(angle * 1.45) * ring * 0.34 + Math.sin(phase + hash) * 12;
-      const opacity = message.decayStage === 4 ? 0.18 : message.decayStage === 3 ? 0.42 : message.decayStage === 2 ? 0.68 : message.decayStage === 1 ? 0.82 : 1;
+      const angle = (hash % 360) * (Math.PI / 180) + index * 0.34;
+      const ring = 170 + (index % 5) * 58 + age * 30;
+      const width = clamp(132 + message.content.length * 1.6, 152, 292);
+      const height = clamp(88 + message.content.length * 0.65, 96, 176);
+      const x = center.x + Math.cos(angle) * ring;
+      const y = center.y + Math.sin(angle * 1.36) * ring * 0.38;
+      const opacity =
+        message.decayStage === 4
+          ? 0.14
+          : message.decayStage === 3
+            ? 0.38
+            : message.decayStage === 2
+              ? 0.64
+              : message.decayStage === 1
+                ? 0.84
+                : 1;
 
       return {
         message,
@@ -111,39 +95,44 @@ export function OrganismField({ topic, vibeColor, messages, users, fragments, gh
         height,
         path: buildOrganicPath({
           seed: message.id,
-          radiusX: width / 2.25,
-          radiusY: height / 2.15,
-          phase: phase + index * 0.2,
+          radiusX: width / 2.2,
+          radiusY: height / 2.1,
+          phase: (hash % 100) / 14,
           sentiment: message.sentiment,
-          wobble: message.decayStage >= 3 ? 0.34 : 0.2,
+          wobble: message.decayStage >= 3 ? 0.28 : 0.16,
         }),
         opacity,
         age,
+        driftDuration: 9 + (hash % 7),
+        driftDelay: (hash % 5) * -1.2,
       };
     });
-  }, [center.x, center.y, messages, phase, pointer.x]);
+  }, [center.x, center.y, messages]);
 
   const userFields = useMemo(() => {
-    const activeUsers = Object.values(users).slice(0, 12);
+    const activeUsers = Object.values(users).slice(0, 10);
     return activeUsers.map((user, index) => {
-      const angle = phase * 0.08 + index * (Math.PI * 2 / Math.max(1, activeUsers.length));
+      const angle = index * (Math.PI * 2 / Math.max(1, activeUsers.length));
       const radius = Math.min(viewport.width, viewport.height) * 0.34;
+      const hash = Math.abs(hashString(user.id));
       return {
         user,
         x: center.x + Math.cos(angle) * radius,
         y: center.y + Math.sin(angle) * radius * 0.55,
+        driftDuration: 11 + (hash % 5),
+        driftDelay: (hash % 4) * -0.9,
       };
     });
-  }, [center.x, center.y, phase, users, viewport.height, viewport.width]);
+  }, [center.x, center.y, users, viewport.height, viewport.width]);
 
   const connectionPaths = useMemo(() => {
     const paths: Array<{ d: string; color: string; width: number; opacity: number }> = [];
     visibleMessages.forEach((blob, index) => {
       paths.push({
-        d: buildConnectionPath(center, { x: blob.x, y: blob.y }, Math.sin(index + phase) * 70),
+        d: buildConnectionPath(center, { x: blob.x, y: blob.y }, ((index % 2 === 0 ? 1 : -1) * 54)),
         color: blob.message.userColor,
-        width: blob.message.decayStage >= 3 ? 1 : 1.6,
-        opacity: blob.message.decayStage >= 3 ? 0.16 : 0.28,
+        width: blob.message.decayStage >= 3 ? 1 : 1.5,
+        opacity: blob.message.decayStage >= 3 ? 0.14 : 0.24,
       });
 
       if (index > 0) {
@@ -152,31 +141,30 @@ export function OrganismField({ topic, vibeColor, messages, users, fragments, gh
           d: buildConnectionPath(
             { x: previous.x, y: previous.y },
             { x: blob.x, y: blob.y },
-            Math.cos(index + phase) * 34,
+            (index % 2 === 0 ? 1 : -1) * 28,
           ),
           color: previous.message.userColor,
           width: 1,
-          opacity: 0.14,
+          opacity: 0.12,
         });
       }
     });
     return paths;
-  }, [center, phase, visibleMessages]);
+  }, [center, visibleMessages]);
 
   const membraneBands = useMemo(
     () =>
       Array.from({ length: 4 }, (_, index) => ({
-        radiusX: 140 + index * 42 + Math.sin(phase * (0.7 + index * 0.08)) * 10,
-        radiusY: 64 + index * 20 + Math.cos(phase * (0.9 + index * 0.12)) * 8,
-        opacity: 0.08 + index * 0.028,
-        rotation: phase * (4 + index * 1.4) + index * 18,
+        radiusX: 142 + index * 42,
+        radiusY: 66 + index * 18,
+        opacity: 0.06 + index * 0.028,
         dash: index % 2 === 0 ? '8 18' : '2 14',
       })),
-    [phase],
+    [],
   );
 
   return (
-    <div ref={containerRef} className="absolute inset-0 overflow-hidden">
+    <div className="absolute inset-0 overflow-hidden">
       <svg className="absolute inset-0 h-full w-full" aria-hidden="true">
         <defs>
           <radialGradient id="organism-core" cx="50%" cy="50%" r="50%">
@@ -214,7 +202,6 @@ export function OrganismField({ topic, vibeColor, messages, users, fragments, gh
           ry={Math.min(viewport.width, viewport.height) * 0.12}
           fill="url(#membrane-wash)"
           opacity="0.12"
-          transform={`rotate(${Math.sin(phase * 0.3) * 8} ${center.x} ${center.y})`}
         />
 
         {membraneBands.map((band, index) => (
@@ -229,7 +216,8 @@ export function OrganismField({ topic, vibeColor, messages, users, fragments, gh
             strokeOpacity={band.opacity}
             strokeDasharray={band.dash}
             strokeWidth={index === 0 ? 1.4 : 1}
-            transform={`rotate(${band.rotation} ${center.x} ${center.y})`}
+            className={index % 2 === 0 ? 'field-rotate-slow' : 'field-rotate-fast'}
+            style={{ transformOrigin: `${center.x}px ${center.y}px` }}
           />
         ))}
 
@@ -247,32 +235,38 @@ export function OrganismField({ topic, vibeColor, messages, users, fragments, gh
 
         <circle cx={center.x} cy={center.y} r="68" fill="url(#organism-core)" opacity="0.22" />
         <circle cx={center.x} cy={center.y} r="102" fill="none" stroke={vibeColor} strokeOpacity="0.18" strokeDasharray="6 20" />
-        <circle
-          cx={center.x}
-          cy={center.y}
-          r={34 + Math.sin(phase * 2) * 4}
-          fill="none"
-          stroke="rgba(255,255,255,0.26)"
-          strokeOpacity="0.36"
-        />
+        <circle cx={center.x} cy={center.y} r="34" fill="none" stroke="rgba(255,255,255,0.26)" strokeOpacity="0.36" />
         <circle cx={center.x} cy={center.y} r="18" fill="rgba(255,255,255,0.78)" />
       </svg>
 
       <div className="pointer-events-none absolute inset-0">
-        {visibleMessages.map((blob) => {
+        {visibleMessages.map((blob, index) => {
           const stageColor = blob.message.decayStage >= 3 ? 'transparent' : blob.message.userColor;
-          const scrambled = glitchText(blob.message.content, blob.message.decayStage, phase + blob.age * 8);
+          const scrambled = glitchText(blob.message.content, blob.message.decayStage);
           return (
             <div
               key={blob.message.id}
               className="absolute -translate-x-1/2 -translate-y-1/2"
-              style={{ left: blob.x, top: blob.y, opacity: blob.opacity }}
+              style={{
+                left: blob.x,
+                top: blob.y,
+                opacity: blob.opacity,
+                animation: `field-float ${blob.driftDuration}s ease-in-out ${blob.driftDelay}s infinite`,
+              }}
             >
-              <div className="relative" style={{ width: blob.width, height: blob.height }}>
+              <div
+                className="relative"
+                style={{
+                  width: blob.width,
+                  height: blob.height,
+                  filter: blob.message.decayStage >= 3 ? 'blur(1px)' : 'none',
+                  transform: blob.message.decayStage >= 4 ? 'scale(0.92)' : 'scale(1)',
+                }}
+              >
                 <svg className="absolute inset-0 h-full w-full overflow-visible" viewBox={`-${blob.width / 2} -${blob.height / 2} ${blob.width} ${blob.height}`}>
                   <path
                     d={blob.path}
-                    fill={blob.message.decayStage >= 3 ? 'rgba(255,255,255,0.04)' : `${stageColor}`}
+                    fill={blob.message.decayStage >= 3 ? 'rgba(255,255,255,0.04)' : stageColor}
                     fillOpacity={blob.message.decayStage >= 3 ? 1 : 0.14}
                     stroke={blob.message.userColor}
                     strokeWidth={blob.message.decayStage >= 3 ? 1.8 : 1.3}
@@ -290,9 +284,9 @@ export function OrganismField({ topic, vibeColor, messages, users, fragments, gh
                 </div>
 
                 {(blob.message.decayStage >= 2 || blob.message.isBurst) &&
-                  Array.from({ length: 6 }, (_, particleIndex) => {
-                    const particleAngle = particleIndex * (Math.PI * 2 / 6) + phase + blob.age * 6;
-                    const orbit = blob.width * 0.28 + particleIndex * 4;
+                  Array.from({ length: 5 }, (_, particleIndex) => {
+                    const particleAngle = particleIndex * (Math.PI * 2 / 5);
+                    const orbit = blob.width * 0.26 + particleIndex * 6;
                     return (
                       <span
                         key={`${blob.message.id}-p-${particleIndex}`}
@@ -302,11 +296,22 @@ export function OrganismField({ topic, vibeColor, messages, users, fragments, gh
                           top: blob.height / 2 + Math.sin(particleAngle) * orbit * 0.55,
                           background: blob.message.userColor,
                           boxShadow: `0 0 12px ${blob.message.userColor}`,
-                          opacity: blob.message.decayStage >= 3 ? 0.24 : 0.6,
+                          opacity: blob.message.decayStage >= 3 ? 0.2 : 0.55,
+                          animation: `field-float ${7 + particleIndex}s ease-in-out ${particleIndex * -0.6}s infinite`,
                         }}
                       />
                     );
                   })}
+
+                {index % 2 === 0 && (
+                  <span
+                    className="absolute inset-0 rounded-[42%_58%_54%_46%/44%_38%_62%_56%]"
+                    style={{
+                      border: `1px solid ${blob.message.userColor}22`,
+                      transform: 'scale(1.04)',
+                    }}
+                  />
+                )}
               </div>
             </div>
           );
@@ -314,13 +319,17 @@ export function OrganismField({ topic, vibeColor, messages, users, fragments, gh
 
         {fragments.map((fragment, index) => {
           const hash = Math.abs(hashString(fragment.id));
-          const x = center.x + Math.cos(hash * 0.002 + phase * 0.2) * (220 + index * 24);
-          const y = center.y + Math.sin(hash * 0.003 + phase * 0.35) * 120;
+          const x = center.x + Math.cos((hash % 360) * (Math.PI / 180)) * (220 + index * 22);
+          const y = center.y + Math.sin(((hash % 360) * 1.2) * (Math.PI / 180)) * 116;
           return (
             <div
               key={fragment.id}
               className="absolute -translate-x-1/2 -translate-y-1/2 text-center"
-              style={{ left: x, top: y }}
+              style={{
+                left: x,
+                top: y,
+                animation: `field-float ${10 + (hash % 4)}s ease-in-out ${(hash % 5) * -0.8}s infinite`,
+              }}
             >
               <div className="text-4xl text-white/35 drop-shadow-[0_0_22px_rgba(255,255,255,0.25)]">?</div>
               <div className="mt-2 max-w-[160px] text-xs leading-relaxed text-white/50">
@@ -330,23 +339,27 @@ export function OrganismField({ topic, vibeColor, messages, users, fragments, gh
           );
         })}
 
-        {userFields.map(({ user, x, y }) => (
+        {userFields.map(({ user, x, y, driftDuration, driftDelay }) => (
           <div
             key={user.id}
             className="absolute -translate-x-1/2 -translate-y-1/2 text-center"
-            style={{ left: x, top: y }}
+            style={{
+              left: x,
+              top: y,
+              animation: `field-float ${driftDuration}s ease-in-out ${driftDelay}s infinite`,
+            }}
           >
             <div
-              className="absolute -inset-8 rounded-full"
+              className="absolute -inset-8 rounded-full aura-breathe"
               style={{
                 background: `radial-gradient(circle, ${user.color}22 0%, transparent 72%)`,
-                opacity: user.isGhost ? 0.18 : 0.52,
-                transform: `scale(${1 + Math.sin(phase * 2 + x * 0.01) * 0.08})`,
+                opacity: user.isGhost ? 0.16 : 0.5,
                 filter: 'blur(10px)',
+                animationDelay: `${driftDelay}s`,
               }}
             />
             <div
-              className="relative rounded-full"
+              className="relative rounded-full aura-breathe"
               style={{
                 width: 28 + user.momentum * 0.18,
                 height: 28 + user.momentum * 0.18,
@@ -354,32 +367,36 @@ export function OrganismField({ topic, vibeColor, messages, users, fragments, gh
                 boxShadow: `0 0 28px ${user.color}`,
                 opacity: user.isGhost ? 0.28 : 0.76,
                 background: `radial-gradient(circle, ${user.color}55 0%, transparent 70%)`,
+                animationDelay: `${driftDelay}s`,
               }}
             >
               <span
-                className="absolute inset-[-9px] rounded-full"
+                className="absolute inset-[-9px] rounded-full aura-breathe"
                 style={{
                   border: `1px solid ${user.color}`,
-                  opacity: user.isGhost ? 0.18 : 0.26,
-                  transform: `scale(${1.08 + Math.sin(phase * 1.8 + y * 0.01) * 0.08})`,
+                  opacity: user.isGhost ? 0.16 : 0.22,
+                  animationDuration: '5.8s',
+                  animationDelay: `${driftDelay - 0.7}s`,
                 }}
               />
               {user.isTyping && (
                 <>
                   <span
-                    className="absolute inset-[-6px] rounded-full"
+                    className="absolute inset-[-6px] rounded-full aura-breathe"
                     style={{
                       border: `1px solid ${user.color}`,
-                      opacity: 0.55,
-                      transform: `scale(${1.05 + Math.sin(phase * 4) * 0.08})`,
+                      opacity: 0.5,
+                      animationDuration: '2s',
+                      animationDelay: `${driftDelay}s`,
                     }}
                   />
                   <span
-                    className="absolute inset-[-14px] rounded-full"
+                    className="absolute inset-[-14px] rounded-full aura-breathe"
                     style={{
                       border: `1px solid ${user.color}`,
-                      opacity: 0.24,
-                      transform: `scale(${1.18 + Math.cos(phase * 3.2) * 0.12})`,
+                      opacity: 0.22,
+                      animationDuration: '2.6s',
+                      animationDelay: `${driftDelay - 0.4}s`,
                     }}
                   />
                 </>

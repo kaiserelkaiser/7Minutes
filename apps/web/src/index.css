@@ -585,6 +585,39 @@
     animation: organism-shake 0.45s ease-in-out infinite;
   }
 
+  .field-rotate-slow {
+    transform-origin: center;
+    animation: field-rotate-slow 28s linear infinite;
+  }
+
+  .field-rotate-fast {
+    transform-origin: center;
+    animation: field-rotate-fast 18s linear infinite;
+  }
+
+  .aura-breathe {
+    animation: aura-breathe 4.8s ease-in-out infinite;
+  }
+
+  .thought-cursor-glow {
+    filter: blur(12px);
+    animation: thought-cursor-glow 2.6s ease-in-out infinite;
+  }
+
+  .thought-trail-char {
+    animation: thought-trail-drift 3.2s ease-in-out infinite;
+    will-change: transform, opacity;
+  }
+
+  .thought-orb {
+    animation: thought-orb-drift 4s ease-in-out infinite;
+    will-change: transform, opacity;
+  }
+
+  .field-float {
+    animation: field-float 8s ease-in-out infinite;
+  }
+
   ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
@@ -630,6 +663,76 @@
   }
   60% {
     transform: translate3d(1px, -1px, 0);
+  }
+}
+
+@keyframes field-rotate-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes field-rotate-fast {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+@keyframes aura-breathe {
+  0%,
+  100% {
+    transform: translateZ(0) scale(1);
+    opacity: 0.88;
+  }
+  50% {
+    transform: translateZ(0) scale(1.04);
+    opacity: 1;
+  }
+}
+
+@keyframes thought-cursor-glow {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(0.96);
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.08);
+  }
+}
+
+@keyframes thought-trail-drift {
+  0%,
+  100% {
+    transform: translate(-50%, -50%);
+  }
+  50% {
+    transform: translate(-50%, calc(-50% - 8px));
+  }
+}
+
+@keyframes thought-orb-drift {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(0.92);
+  }
+  50% {
+    transform: translate(-50%, calc(-50% - 10px)) scale(1.08);
+  }
+}
+
+@keyframes field-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -10px, 0);
   }
 }
 

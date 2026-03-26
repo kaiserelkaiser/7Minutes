@@ -25,24 +25,17 @@ export function ThoughtManifest({
   const [draft, setDraft] = useState('');
   const [mode, setMode] = useState<'message' | 'fragment'>('message');
   const [cursor, setCursor] = useState({ x: 0, y: 0 });
-  const [phase, setPhase] = useState(0);
   const [burstCharging, setBurstCharging] = useState(false);
   const [burstReady, setBurstReady] = useState(false);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const burstTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pointerFrameRef = useRef<number | null>(null);
+  const pendingCursorRef = useRef({ x: 0, y: 0 });
 
   useEffect(() => {
-    setCursor({ x: window.innerWidth / 2, y: window.innerHeight * 0.72 });
-  }, []);
-
-  useEffect(() => {
-    let frame = 0;
-    const animate = () => {
-      setPhase(performance.now() / 1000);
-      frame = requestAnimationFrame(animate);
-    };
-    frame = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(frame);
+    const initial = { x: window.innerWidth / 2, y: window.innerHeight * 0.72 };
+    pendingCursorRef.current = initial;
+    setCursor(initial);
   }, []);
 
   const announceTyping = useCallback(() => {
@@ -76,8 +69,18 @@ export function ThoughtManifest({
   }, [burstAvailable, burstReady, clearBurstTimer, draft, isGhost, isRadio, mode, onDropFragment, onSendMessage, onTyping]);
 
   useEffect(() => {
+    const scheduleCursor = (x: number, y: number) => {
+      pendingCursorRef.current = { x, y };
+      if (pointerFrameRef.current !== null) return;
+
+      pointerFrameRef.current = requestAnimationFrame(() => {
+        pointerFrameRef.current = null;
+        setCursor(pendingCursorRef.current);
+      });
+    };
+
     const handleMove = (event: MouseEvent) => {
-      setCursor({ x: event.clientX, y: event.clientY });
+      scheduleCursor(event.clientX, event.clientY);
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -159,6 +162,7 @@ export function ThoughtManifest({
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      if (pointerFrameRef.current !== null) cancelAnimationFrame(pointerFrameRef.current);
       clearBurstTimer();
     };
   }, [announceTyping, burstAvailable, burstCharging, burstReady, clearBurstTimer, commit, draft.length, mode, onTyping]);
@@ -167,15 +171,17 @@ export function ThoughtManifest({
   const previewPath = useMemo(
     () => buildOrganicPath({
       seed: `${userKey}-${draft.length || 1}`,
-      radiusX: Math.max(70, Math.min(160, 76 + draft.length * 2.8)),
-      radiusY: Math.max(44, Math.min(110, 52 + draft.length * 1.4)),
-      phase,
+      radiusX: Math.max(72, Math.min(148, 78 + draft.length * 2.2)),
+      radiusY: Math.max(46, Math.min(102, 54 + draft.length * 1.15)),
+      phase: draft.length * 0.18 + (burstReady ? 0.6 : 0),
       sentiment: draft.length % 2 === 0 ? 'positive' : 'neutral',
-      wobble: mode === 'fragment' ? 0.26 : 0.18,
+      wobble: mode === 'fragment' ? 0.2 : 0.14,
     }),
-    [draft.length, mode, phase, userKey],
+    [burstReady, draft.length, mode, userKey],
   );
-  const burstChargeRatio = burstCharging ? (Math.sin(phase * 4) + 1) / 2 : burstReady ? 1 : 0;
+  const burstChargeRatio = burstCharging ? 0.6 : burstReady ? 1 : 0;
+  const trailingCharacters = draft.split('').slice(-20);
+  const orbitCount = draft ? 4 : 2;
 
   if (isRadio) {
     return (
@@ -193,14 +199,13 @@ export function ThoughtManifest({
   return (
     <div className="pointer-events-none absolute inset-0 z-[140] overflow-hidden">
       <div
-        className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full"
+        className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full thought-cursor-glow"
         style={{
           left: cursor.x,
           top: cursor.y,
           width: 84,
           height: 84,
           background: `radial-gradient(circle, ${previewColor}22 0%, transparent 72%)`,
-          filter: 'blur(12px)',
           opacity: draft ? 0.9 : 0.48,
         }}
       />
@@ -209,9 +214,9 @@ export function ThoughtManifest({
         className="absolute -translate-x-1/2 -translate-y-1/2"
         style={{ left: cursor.x, top: cursor.y }}
       >
-        {draft && (
+        {draft ? (
           <div className="relative">
-            <svg width="360" height="220" viewBox="-180 -110 360 220" className="overflow-visible">
+            <svg width="340" height="204" viewBox="-170 -102 340 204" className="overflow-visible">
               <defs>
                 <filter id="thought-glow" x="-120%" y="-120%" width="340%" height="340%">
                   <feGaussianBlur stdDeviation="10" result="blur" />
@@ -229,18 +234,18 @@ export function ThoughtManifest({
               </defs>
               <path
                 d={previewPath}
-                fill={mode === 'fragment' ? 'rgba(155, 92, 255, 0.16)' : 'rgba(0, 245, 255, 0.12)'}
+                fill={mode === 'fragment' ? 'rgba(155, 92, 255, 0.14)' : 'rgba(0, 245, 255, 0.1)'}
                 stroke={previewColor}
-                strokeWidth={burstReady ? 2.6 : 1.8}
+                strokeWidth={burstReady ? 2.4 : 1.7}
                 filter="url(#thought-glow)"
               />
               <circle
                 cx="0"
                 cy="0"
-                r={72 + burstChargeRatio * 10}
+                r={70 + burstChargeRatio * 12}
                 fill="none"
                 stroke={previewColor}
-                strokeOpacity={burstReady ? 0.45 : 0.18}
+                strokeOpacity={burstReady ? 0.45 : 0.16}
                 strokeDasharray="5 14"
                 strokeWidth="1"
               />
@@ -250,7 +255,7 @@ export function ThoughtManifest({
                 <div className="font-mono text-[10px] uppercase tracking-[0.45em] text-white/40">
                   {mode === 'fragment' ? 'fragment' : burstReady ? 'burst armed' : 'manifesting'}
                 </div>
-                <div className="mt-3 max-w-[260px] text-lg font-medium leading-snug text-white drop-shadow-[0_0_18px_rgba(255,255,255,0.24)]">
+                <div className="mt-3 max-w-[240px] text-base font-medium leading-snug text-white drop-shadow-[0_0_18px_rgba(255,255,255,0.24)] sm:text-lg">
                   {draft}
                 </div>
                 <div className="mt-3 text-[10px] uppercase tracking-[0.32em] text-white/36">
@@ -259,9 +264,7 @@ export function ThoughtManifest({
               </div>
             </div>
           </div>
-        )}
-
-        {!draft && !isGhost && (
+        ) : !isGhost ? (
           <div className="-translate-x-1/2 -translate-y-1/2 text-center" style={{ color: vibeColor }}>
             <div className="font-mono text-[10px] uppercase tracking-[0.45em] text-white/35">
               type anywhere
@@ -270,22 +273,23 @@ export function ThoughtManifest({
               Enter sends. Tab toggles fragment. Hold space to arm burst.
             </div>
           </div>
-        )}
+        ) : null}
       </div>
 
-      {draft.split('').slice(-28).map((character, index, collection) => {
-        const wave = phase * 2.4 + index * 0.45;
-        const spread = (index - collection.length / 2) * 13;
+      {trailingCharacters.map((character, index, collection) => {
+        const progress = index / Math.max(1, collection.length - 1);
+        const spread = (index - collection.length / 2) * 12;
         return (
           <span
             key={`${character}-${index}`}
-            className="absolute font-mono text-sm text-white/85"
+            className="thought-trail-char absolute font-mono text-sm text-white/80"
             style={{
-              left: cursor.x + spread + Math.sin(wave) * 8,
-              top: cursor.y - 54 + Math.cos(wave * 1.2) * 10,
+              left: cursor.x + spread,
+              top: cursor.y - 46 - progress * 24,
               textShadow: `0 0 14px ${previewColor}`,
-              opacity: 0.18 + index / Math.max(1, collection.length),
-              transform: `translate(-50%, -50%) scale(${0.72 + index / Math.max(1, collection.length) * 0.45})`,
+              opacity: 0.16 + progress * 0.44,
+              transform: `translate(-50%, -50%) scale(${0.78 + progress * 0.24})`,
+              animationDelay: `${index * 70}ms`,
             }}
           >
             {character === ' ' ? '.' : character}
@@ -293,24 +297,23 @@ export function ThoughtManifest({
         );
       })}
 
-      {Array.from({ length: draft ? 6 : 3 }, (_, index) => {
-        const orbit = 28 + index * 14;
-        const angle = phase * (1.3 + index * 0.16) + index;
-        const x = cursor.x + Math.cos(angle) * orbit;
-        const y = cursor.y + Math.sin(angle * 1.2) * orbit * 0.55;
+      {Array.from({ length: orbitCount }, (_, index) => {
+        const orbit = 30 + index * 16;
+        const side = index % 2 === 0 ? -1 : 1;
         return (
           <span
             key={`thought-orb-${index}`}
-            className="absolute block rounded-full"
+            className="thought-orb absolute block rounded-full"
             style={{
-              left: x,
-              top: y,
-              width: 4 + index,
-              height: 4 + index,
+              left: cursor.x + side * orbit,
+              top: cursor.y - orbit * 0.22,
+              width: 5 + index,
+              height: 5 + index,
               background: previewColor,
               boxShadow: `0 0 16px ${previewColor}`,
-              opacity: draft ? 0.22 + index * 0.08 : 0.14 + index * 0.05,
+              opacity: draft ? 0.18 + index * 0.08 : 0.14 + index * 0.04,
               transform: 'translate(-50%, -50%)',
+              animationDelay: `${index * 180}ms`,
             }}
           />
         );

@@ -63,6 +63,8 @@ export default function Landing() {
   const [scheduledFor, setScheduledFor] = useState('');
   const [hoveredRoomId, setHoveredRoomId] = useState<string | null>(null);
   const [joinMode, setJoinMode] = useState<'participate' | 'radio'>('participate');
+  const [spotlightMode, setSpotlightMode] = useState<'now' | 'echo' | 'growth'>('now');
+  const [controlDeckMode, setControlDeckMode] = useState<'join' | 'network' | 'schedule'>('join');
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(
     typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'default',
@@ -495,224 +497,227 @@ export default function Landing() {
               </div>
             )}
 
-            <div className="mt-5 grid w-full max-w-[36rem] gap-3 sm:mt-6">
-              <div className="organism-node organism-node--dense px-4 py-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <div className="font-mono text-[10px] uppercase tracking-[0.42em] text-white/32">who&apos;s here now</div>
-                    <div className="mt-2 text-sm text-white/86">
-                      {presence ? `${presence.onlineNow} minds online - ${presence.activeRooms} live rooms` : 'Reading the live social pulse...'}
-                    </div>
-                  </div>
-                  {presence?.celebrityAlert
-                    ? (() => {
-                        const celebrityAlert = presence.celebrityAlert;
-                        return (
-                          <button
-                            onClick={() => void joinFriendRoom(celebrityAlert.roomId, celebrityAlert.room)}
-                            className="plasma-button plasma-button--ghost px-3 py-1.5 text-[#ffcf6e]"
-                          >
-                            notable mind in orbit
-                          </button>
-                        );
-                      })()
-                    : null}
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {(presence?.trendingTopics ?? []).slice(0, 5).map((topic) => (
-                    <div key={topic.topic} className="liquid-tag text-[11px]">
-                      {topic.topic} - {topic.totalUsers} watching
-                    </div>
-                  ))}
-                </div>
-                {presence?.celebrityAlert && (
-                  <div className="mt-3 text-xs leading-5 text-white/48">
-                    {presence.celebrityAlert.username} is live inside &ldquo;{presence.celebrityAlert.room}&rdquo; as a {presence.celebrityAlert.verificationTier} signal with {presence.celebrityAlert.spotsLeft} spots left.
-                  </div>
-                )}
-                {presence?.friendsOnline?.length ? (
-                  <div className="mt-4 grid gap-2">
-                    {presence.friendsOnline.slice(0, 3).map((friend) => (
-                      <button
-                        key={`${friend.userId}-${friend.roomId}`}
-                        onClick={() => void joinFriendRoom(friend.roomId, friend.roomTopic)}
-                        className="organism-ribbon flex items-center justify-between px-3 py-2 text-left transition hover:border-white/20 hover:bg-white/[0.06]"
-                      >
-                        <div>
-                          <div className="text-sm text-white/86">{friend.username} is in &ldquo;{friend.roomTopic}&rdquo;</div>
-                          <div className="mt-1 text-xs text-white/46">
-                            {friend.roomUserCount}/{friend.roomMaxUsers} users - {Math.ceil(friend.timeLeftSeconds / 60)} min left
-                          </div>
-                        </div>
-                        <div className="font-mono text-[10px] uppercase tracking-[0.32em] text-white/46">join friend</div>
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="mt-3 text-xs leading-5 text-white/42">
-                    Follow someone and their live rooms will light up here the moment they enter orbit.
-                  </div>
-                )}
-                {presence?.featuredRooms?.length ? (
-                  <div className="mt-4 grid gap-2">
-                    {presence.featuredRooms.slice(0, 2).map((room) => (
-                      <button
-                        key={`${room.roomId}-${room.username}`}
-                        onClick={() => void joinFriendRoom(room.roomId, room.topic)}
-                        className="organism-ribbon flex items-center justify-between px-3 py-2 text-left transition hover:border-[#ffcf6e]/32 hover:bg-[linear-gradient(135deg,rgba(255,207,110,0.16),rgba(8,8,18,0.32))]"
-                      >
-                        <div>
-                          <div className="text-sm text-white/88">{room.username} is hosting &ldquo;{room.topic}&rdquo;</div>
-                          <div className="mt-1 text-xs text-white/48">
-                            {room.verificationTier} orbit - {room.userCount}/{room.maxUsers} users - {Math.ceil(room.timeLeftSeconds / 60)} min left
-                          </div>
-                        </div>
-                        <div className="font-mono text-[10px] uppercase tracking-[0.32em] text-[#ffcf6e]">featured</div>
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
+            <div className="mt-5 flex w-full max-w-[36rem] flex-wrap gap-2 sm:mt-6">
+              {([
+                ['now', 'live pulse'],
+                ['echo', 'afterglow'],
+                ['growth', 'signal web'],
+              ] as const).map(([mode, label]) => {
+                const active = spotlightMode === mode;
+                return (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setSpotlightMode(mode)}
+                    className="liquid-switch px-3 py-2 text-[10px] uppercase tracking-[0.32em]"
+                    style={{
+                      background: active ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.045)',
+                      color: active ? '#fff' : 'rgba(255,255,255,0.56)',
+                      borderColor: active ? identityGlow : 'rgba(255,255,255,0.08)',
+                      boxShadow: active ? `0 0 28px ${identityGlow}24` : 'none',
+                    }}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="organism-node organism-node--quiet px-4 py-3">
-                  <div className="font-mono text-[10px] uppercase tracking-[0.42em] text-white/32">name memory</div>
-                  <div className="mt-2 text-sm text-white/86">
-                    {profile?.stats.currentStreak ?? authSession?.user.currentStreak ?? 0} day streak
+            <div className="mt-4 grid w-full max-w-[36rem] gap-3">
+              {spotlightMode === 'now' && (
+                <div className="organism-node organism-node--dense px-4 py-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <div className="font-mono text-[10px] uppercase tracking-[0.42em] text-white/32">who&apos;s here now</div>
+                      <div className="mt-2 text-sm text-white/86">
+                        {presence ? `${presence.onlineNow} minds online - ${presence.activeRooms} live rooms` : 'Reading the live social pulse...'}
+                      </div>
+                    </div>
+                    {presence?.celebrityAlert
+                      ? (() => {
+                          const celebrityAlert = presence.celebrityAlert;
+                          return (
+                            <button
+                              onClick={() => void joinFriendRoom(celebrityAlert.roomId, celebrityAlert.room)}
+                              className="plasma-button plasma-button--ghost px-3 py-1.5 text-[#ffcf6e]"
+                            >
+                              notable mind
+                            </button>
+                          );
+                        })()
+                      : null}
                   </div>
-                  <div className="mt-1 text-xs leading-5 text-white/48">
-                    Reputation {profile?.reputation ?? authSession?.user.reputation ?? 50} - creature stage {profile?.creatureStage ?? authSession?.user.creatureStage ?? 1}
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {(presence?.trendingTopics ?? []).slice(0, 4).map((topic) => (
+                      <div key={topic.topic} className="liquid-tag text-[11px]">
+                        {topic.topic} - {topic.totalUsers}
+                      </div>
+                    ))}
                   </div>
-                  {invitedByUsername && (
-                    <div className="mt-2 text-xs leading-5 text-[#9fdfff]">
-                      {invitedByUsername} invited you into this signal web.
+                  {presence?.friendsOnline?.length ? (
+                    <div className="mt-4 grid gap-2">
+                      {presence.friendsOnline.slice(0, 2).map((friend) => (
+                        <button
+                          key={`${friend.userId}-${friend.roomId}`}
+                          onClick={() => void joinFriendRoom(friend.roomId, friend.roomTopic)}
+                          className="organism-ribbon flex items-center justify-between px-3 py-2 text-left transition hover:border-white/20 hover:bg-white/[0.06]"
+                        >
+                          <div>
+                            <div className="text-sm text-white/86">{friend.username} is in &ldquo;{friend.roomTopic}&rdquo;</div>
+                            <div className="mt-1 text-xs text-white/46">
+                              {friend.roomUserCount}/{friend.roomMaxUsers} users - {Math.ceil(friend.timeLeftSeconds / 60)} min left
+                            </div>
+                          </div>
+                          <div className="font-mono text-[10px] uppercase tracking-[0.32em] text-white/46">join</div>
+                        </button>
+                      ))}
+                    </div>
+                  ) : presence?.featuredRooms?.length ? (
+                    <div className="mt-4 grid gap-2">
+                      {presence.featuredRooms.slice(0, 2).map((room) => (
+                        <button
+                          key={`${room.roomId}-${room.username}`}
+                          onClick={() => void joinFriendRoom(room.roomId, room.topic)}
+                          className="organism-ribbon flex items-center justify-between px-3 py-2 text-left transition hover:border-[#ffcf6e]/32 hover:bg-[linear-gradient(135deg,rgba(255,207,110,0.16),rgba(8,8,18,0.32))]"
+                        >
+                          <div>
+                            <div className="text-sm text-white/88">{room.username} is hosting &ldquo;{room.topic}&rdquo;</div>
+                            <div className="mt-1 text-xs text-white/48">
+                              {room.verificationTier} orbit - {room.userCount}/{room.maxUsers} users
+                            </div>
+                          </div>
+                          <div className="font-mono text-[10px] uppercase tracking-[0.32em] text-[#ffcf6e]">featured</div>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="mt-3 text-xs leading-5 text-white/42">
+                      Follow someone and their live rooms will light up here the moment they enter orbit.
                     </div>
                   )}
                 </div>
-                <div className="organism-node organism-node--quiet px-4 py-3">
-                  <div className="font-mono text-[10px] uppercase tracking-[0.42em] text-white/32">memory constellation</div>
-                  <div className="mt-2 text-sm text-white/86">
-                    {mostRecentMemory?.essence ?? 'Your first memory crystal will appear after a room closes.'}
-                  </div>
-                  <div className="mt-1 text-xs leading-5 text-white/48">
-                    {mostRecentMemory ? mostRecentMemory.roomTopic : 'No persistent room artifacts yet'}
-                  </div>
-                </div>
-              </div>
+              )}
 
-              <div className="organism-node organism-node--hero px-4 py-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <div className="font-mono text-[10px] uppercase tracking-[0.42em] text-white/34">invite competition</div>
-                    <div className="mt-2 text-sm text-white/88">
-                      {profile?.inviteStats
-                        ? `${profile.inviteStats.activeInvites} active invites - ${profile.inviteStats.points} ripple points`
-                        : 'Invite friends and turn social gravity into growth.'}
-                    </div>
-                    <div className="mt-1 text-xs leading-5 text-white/48">
-                      {profile?.inviteStats?.reward ?? '5 active invites unlocks the silver inviter badge.'}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => void copyInviteLink()}
-                    disabled={!authSession?.user.inviteCode}
-                    className="plasma-button px-4 py-2 disabled:cursor-not-allowed disabled:opacity-35"
-                  >
-                    copy invite relic
-                  </button>
-                </div>
-
-                <div className="mt-4 grid gap-2">
-                  {inviterLeaderboard.slice(0, 3).map((entry, index) => (
-                    <div
-                      key={entry.userId}
-                      className="organism-ribbon flex items-center justify-between px-3 py-2"
-                    >
-                      <div>
-                        <div className="text-sm text-white/86">
-                          #{index + 1} {entry.username}
-                          {entry.verificationTier ? ` - ${entry.verificationTier}` : ''}
-                        </div>
-                        <div className="mt-1 text-xs text-white/46">
-                          {entry.activeInvites} active invites - {entry.points} points - {entry.reward}
-                        </div>
+              {spotlightMode === 'echo' && (
+                <div className="organism-node organism-node--hero px-4 py-4">
+                  {latestHighlight ? (
+                    <>
+                      <div className="font-mono text-[10px] uppercase tracking-[0.42em] text-white/38">highlight reel</div>
+                      <div className="mt-3 text-xl text-white/94">{latestHighlight.shareCard.bestQuote}</div>
+                      <div className="mt-2 text-sm text-white/62">
+                        {latestHighlight.shareCard.context} - {latestHighlight.vibeLabel}
                       </div>
-                      <div
-                        className="h-3 w-3 rounded-full"
-                        style={{ background: entry.colorSignature, boxShadow: `0 0 16px ${entry.colorSignature}` }}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {pendingEcho && (
-                <div className="organism-node organism-node--warm px-4 py-4">
-                  <div className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#ff9c9c]/78">room echo</div>
-                  <div className="mt-2 text-lg text-white/92">{pendingEcho.title}</div>
-                  <div className="mt-2 text-sm leading-6 text-white/62">{pendingEcho.body}</div>
-                  <div className="mt-3 grid gap-2">
-                    {pendingEcho.finalMoments.map((moment, index) => (
-                      <div key={`${pendingEcho.id}-${index}`} className="organism-ribbon px-3 py-2 text-sm text-white/82">
-                        {moment}
+                      <div className="mt-4 grid gap-2">
+                        {latestHighlight.bestMoments.slice(0, 2).map((moment) => (
+                          <div key={`${latestHighlight.id}-${moment.timestamp}`} className="organism-ribbon px-3 py-2">
+                            <div className="text-xs uppercase tracking-[0.24em] text-white/40">{moment.timestamp}</div>
+                            <div className="mt-1 text-sm text-white/86">{moment.quote}</div>
+                            <div className="mt-1 text-xs text-white/46">{moment.context}</div>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-                    <div className="text-xs uppercase tracking-[0.28em] text-white/44">
-                      {pendingEcho.resonanceMoment ? 'resonance detonated' : 'quiet mutation'} - {pendingEcho.catalystDropped}
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <button onClick={() => void shareMoment(latestHighlight.shareCard)} className="plasma-button px-4 py-2">
+                          share moment
+                        </button>
+                        <button onClick={() => shareToDiscord(latestHighlight.shareCard)} className="plasma-button plasma-button--ghost px-4 py-2">
+                          open card
+                        </button>
+                      </div>
+                    </>
+                  ) : pendingEcho ? (
+                    <>
+                      <div className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#ff9c9c]/78">room echo</div>
+                      <div className="mt-2 text-lg text-white/92">{pendingEcho.title}</div>
+                      <div className="mt-2 text-sm leading-6 text-white/62">{pendingEcho.body}</div>
+                      <div className="mt-3 grid gap-2">
+                        {pendingEcho.finalMoments.slice(0, 3).map((moment, index) => (
+                          <div key={`${pendingEcho.id}-${index}`} className="organism-ribbon px-3 py-2 text-sm text-white/82">
+                            {moment}
+                          </div>
+                        ))}
+                      </div>
+                      <button
+                        onClick={() => revealEcho(pendingEcho.id)}
+                        className="plasma-button plasma-button--ghost mt-4 px-4 py-2 text-white/78"
+                      >
+                        consume replay
+                      </button>
+                    </>
+                  ) : (
+                    <div className="text-sm leading-6 text-white/58">
+                      Stay until a room collapses and the platform will condense the best moment into an afterglow shard.
                     </div>
-                    <button
-                      onClick={() => revealEcho(pendingEcho.id)}
-                      className="plasma-button plasma-button--ghost px-4 py-2 text-white/78"
-                    >
-                      consume one-time replay
-                    </button>
-                  </div>
+                  )}
                 </div>
               )}
 
-              {latestHighlight && (
-                <div
-                  className="organism-node organism-node--hero px-4 py-4 text-left"
-                  style={{
-                    background: `linear-gradient(135deg, ${latestHighlight.shareCard.gradient[0]}24, ${latestHighlight.shareCard.gradient[1]}62)`,
-                  }}
-                >
-                  <div className="font-mono text-[10px] uppercase tracking-[0.42em] text-white/38">highlight reel</div>
-                  <div className="mt-3 text-xl text-white/94">{latestHighlight.shareCard.bestQuote}</div>
-                  <div className="mt-2 text-sm text-white/62">
-                    {latestHighlight.shareCard.context} - {latestHighlight.vibeLabel}
+              {spotlightMode === 'growth' && (
+                <div className="organism-node organism-node--hero px-4 py-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="font-mono text-[10px] uppercase tracking-[0.42em] text-white/34">signal web</div>
+                      <div className="mt-2 text-sm text-white/88">
+                        {profile?.inviteStats
+                          ? `${profile.inviteStats.activeInvites} active invites - ${profile.inviteStats.points} ripple points`
+                          : 'Invite friends and turn social gravity into growth.'}
+                      </div>
+                      <div className="mt-1 text-xs leading-5 text-white/48">
+                        {profile?.inviteStats?.reward ?? '5 active invites unlocks the silver inviter badge.'}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void copyInviteLink()}
+                      disabled={!authSession?.user.inviteCode}
+                      className="plasma-button px-4 py-2 disabled:cursor-not-allowed disabled:opacity-35"
+                    >
+                      copy invite relic
+                    </button>
                   </div>
                   <div className="mt-4 grid gap-2">
-                    {latestHighlight.bestMoments.map((moment) => (
-                      <div key={`${latestHighlight.id}-${moment.timestamp}`} className="organism-ribbon px-3 py-2">
-                        <div className="text-xs uppercase tracking-[0.24em] text-white/40">{moment.timestamp}</div>
-                        <div className="mt-1 text-sm text-white/86">{moment.quote}</div>
-                        <div className="mt-1 text-xs text-white/46">{moment.context}</div>
+                    {inviterLeaderboard.slice(0, 3).map((entry, index) => (
+                      <div key={entry.userId} className="organism-ribbon flex items-center justify-between px-3 py-2">
+                        <div>
+                          <div className="text-sm text-white/86">
+                            #{index + 1} {entry.username}
+                            {entry.verificationTier ? ` - ${entry.verificationTier}` : ''}
+                          </div>
+                          <div className="mt-1 text-xs text-white/46">
+                            {entry.activeInvites} active invites - {entry.points} points
+                          </div>
+                        </div>
+                        <div
+                          className="h-3 w-3 rounded-full"
+                          style={{ background: entry.colorSignature, boxShadow: `0 0 16px ${entry.colorSignature}` }}
+                        />
                       </div>
                     ))}
                   </div>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <button
-                      onClick={() => void shareMoment(latestHighlight.shareCard)}
-                      className="plasma-button px-4 py-2"
-                    >
-                      share to x
-                    </button>
-                    <button
-                      onClick={() => shareToDiscord(latestHighlight.shareCard)}
-                      className="plasma-button plasma-button--ghost px-4 py-2"
-                    >
-                      share to discord
-                    </button>
-                    <button
-                      onClick={() => void shareMoment(topShareCard ?? latestHighlight.shareCard)}
-                      className="plasma-button plasma-button--ghost px-4 py-2"
-                    >
-                      story card
-                    </button>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div className="organism-node organism-node--quiet px-4 py-3">
+                      <div className="font-mono text-[10px] uppercase tracking-[0.42em] text-white/32">name memory</div>
+                      <div className="mt-2 text-sm text-white/86">
+                        {profile?.stats.currentStreak ?? authSession?.user.currentStreak ?? 0} day streak
+                      </div>
+                      <div className="mt-1 text-xs leading-5 text-white/48">
+                        Reputation {profile?.reputation ?? authSession?.user.reputation ?? 50} - creature stage {profile?.creatureStage ?? authSession?.user.creatureStage ?? 1}
+                      </div>
+                    </div>
+                    <div className="organism-node organism-node--quiet px-4 py-3">
+                      <div className="font-mono text-[10px] uppercase tracking-[0.42em] text-white/32">memory constellation</div>
+                      <div className="mt-2 text-sm text-white/86">
+                        {mostRecentMemory?.essence ?? 'Your first memory crystal will appear after a room closes.'}
+                      </div>
+                      <div className="mt-1 text-xs leading-5 text-white/48">
+                        {mostRecentMemory ? mostRecentMemory.roomTopic : 'No persistent room artifacts yet'}
+                      </div>
+                      {invitedByUsername && (
+                        <div className="mt-2 text-xs leading-5 text-[#9fdfff]">
+                          {invitedByUsername} invited you into this signal web.
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -870,171 +875,176 @@ export default function Landing() {
               </div>
             </div>
 
-            <div className="organism-node organism-node--dense w-full px-4 py-4">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <div className="font-mono text-[10px] uppercase tracking-[0.42em] text-white/34">social graph</div>
-                  <div className="mt-2 text-sm text-white/84">
-                    {authSession ? `Moving through the void as ${authSession.user.username}` : 'Pick a name to follow minds you want to orbit.'}
-                  </div>
-                  <div className="mt-1 text-xs leading-5 text-white/46">
-                    {presence?.friendsOnline?.length
-                      ? `${presence.friendsOnline.length} followed signals are live right now.`
-                      : 'No followed minds live yet. Add one and their rooms will surface instantly.'}
-                  </div>
-                  {authSession?.user.verified && (
-                    <div className="mt-2 text-xs uppercase tracking-[0.28em] text-[#ffcf6e]">
-                      verified {authSession.user.verificationTier} aura engaged
-                    </div>
-                  )}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {topShareCard && (
-                    <button
-                      type="button"
-                      onClick={() => void shareMoment(topShareCard)}
-                      className="plasma-button plasma-button--ghost px-3 py-1.5 text-white/74"
-                    >
-                      share latest card
-                    </button>
-                  )}
+            <div className="flex w-full flex-wrap gap-2">
+              {([
+                ['join', 'launch'],
+                ['network', 'network'],
+                ['schedule', 'schedule'],
+              ] as const).map(([mode, label]) => {
+                const active = controlDeckMode === mode;
+                return (
                   <button
+                    key={mode}
                     type="button"
-                    onClick={() => void copyInviteLink()}
-                    disabled={!authSession?.user.inviteCode}
-                    className="plasma-button plasma-button--ghost px-3 py-1.5 text-white/74 disabled:cursor-not-allowed disabled:opacity-35"
+                    onClick={() => setControlDeckMode(mode)}
+                    className="liquid-switch px-3 py-2 text-[10px] uppercase tracking-[0.32em]"
+                    style={{
+                      background: active ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.045)',
+                      color: active ? '#fff' : 'rgba(255,255,255,0.56)',
+                      borderColor: active ? identityGlow : 'rgba(255,255,255,0.08)',
+                      boxShadow: active ? `0 0 28px ${identityGlow}24` : 'none',
+                    }}
                   >
-                    invite link
+                    {label}
                   </button>
-                </div>
-              </div>
-
-              <div className="mt-4 flex flex-col gap-3">
-                <input
-                  value={followHandle}
-                  onChange={(event) => setFollowHandle(event.target.value.slice(0, 24))}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' && followHandle.trim() && authSession) {
-                      followUserMutation.mutate({ username: followHandle.trim() });
-                    }
-                  }}
-                  placeholder="follow a username"
-                  className="signal-input text-sm"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!authSession) {
-                      toast({
-                        title: 'Pick a name first',
-                        description: 'Choose a name, then you can follow people instantly.',
-                        variant: 'destructive',
-                      });
-                      return;
-                    }
-                    if (!followHandle.trim()) return;
-                    followUserMutation.mutate({ username: followHandle.trim() });
-                  }}
-                  disabled={!followHandle.trim() || followUserMutation.isPending}
-                  className="plasma-button plasma-button--ghost px-4 py-3 text-white/78 disabled:cursor-not-allowed disabled:opacity-35"
-                >
-                  {followUserMutation.isPending ? 'linking signal...' : 'follow signal'}
-                </button>
-              </div>
-
-              <div className="mt-4 grid gap-2">
-                {(presence?.friendsOnline ?? []).slice(0, 2).map((friend) => (
-                  <button
-                    key={`${friend.userId}-${friend.roomId}-mini`}
-                    type="button"
-                    onClick={() => void joinFriendRoom(friend.roomId, friend.roomTopic)}
-                    className="organism-ribbon flex items-center justify-between px-3 py-2 text-left transition hover:border-white/22 hover:bg-white/[0.06]"
-                  >
-                    <div>
-                      <div className="text-sm text-white/84">{friend.username}</div>
-                      <div className="mt-1 text-xs text-white/46">
-                        {friend.roomTopic} - {Math.ceil(friend.timeLeftSeconds / 60)} min left
-                      </div>
-                    </div>
-                    <div className="font-mono text-[10px] uppercase tracking-[0.28em] text-white/42">join</div>
-                  </button>
-                ))}
-              </div>
+                );
+              })}
             </div>
 
-            <div className="organism-node organism-node--quiet w-full px-4 py-4">
-              <div className="font-mono text-[10px] uppercase tracking-[0.42em] text-white/34">time capsules</div>
-              <div className="mt-2 text-sm text-white/84">
-                Schedule a room people can plan around instead of hoping to catch by chance.
-              </div>
+            {controlDeckMode === 'network' && (
+              <div className="organism-node organism-node--dense w-full px-4 py-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="font-mono text-[10px] uppercase tracking-[0.42em] text-white/34">social graph</div>
+                    <div className="mt-2 text-sm text-white/84">
+                      {authSession ? `Moving through the void as ${authSession.user.username}` : 'Pick a name to follow minds you want to orbit.'}
+                    </div>
+                    <div className="mt-1 text-xs leading-5 text-white/46">
+                      {presence?.friendsOnline?.length
+                        ? `${presence.friendsOnline.length} followed signals are live right now.`
+                        : 'No followed minds live yet. Add one and their rooms will surface instantly.'}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {topShareCard && (
+                      <button
+                        type="button"
+                        onClick={() => void shareMoment(topShareCard)}
+                        className="plasma-button plasma-button--ghost px-3 py-1.5 text-white/74"
+                      >
+                        share latest card
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => void copyInviteLink()}
+                      disabled={!authSession?.user.inviteCode}
+                      className="plasma-button plasma-button--ghost px-3 py-1.5 text-white/74 disabled:cursor-not-allowed disabled:opacity-35"
+                    >
+                      invite link
+                    </button>
+                  </div>
+                </div>
 
-              <div className="mt-4 flex flex-col gap-3">
-                <input
-                  value={scheduleTopic}
-                  onChange={(event) => setScheduleTopic(event.target.value.slice(0, 60))}
-                  placeholder="future room topic"
-                    className="signal-input text-sm"
-                />
-                <textarea
-                  value={scheduleDescription}
-                  onChange={(event) => setScheduleDescription(event.target.value.slice(0, 180))}
-                  placeholder="why should people show up?"
-                  rows={3}
-                  className="signal-area text-sm"
-                />
-                <div className="grid gap-2 sm:grid-cols-2">
+                <div className="mt-4 flex flex-col gap-3">
                   <input
-                    type="datetime-local"
-                    value={scheduledFor}
-                    onChange={(event) => setScheduledFor(event.target.value)}
+                    value={followHandle}
+                    onChange={(event) => setFollowHandle(event.target.value.slice(0, 24))}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' && followHandle.trim() && authSession) {
+                        followUserMutation.mutate({ username: followHandle.trim() });
+                      }
+                    }}
+                    placeholder="follow a username"
                     className="signal-input text-sm"
                   />
-                  <select
-                    value={scheduleKind}
-                    onChange={(event) => setScheduleKind(event.target.value as typeof scheduleKind)}
-                    className="signal-select text-sm"
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!authSession) {
+                        toast({
+                          title: 'Pick a name first',
+                          description: 'Choose a name, then you can follow people instantly.',
+                          variant: 'destructive',
+                        });
+                        return;
+                      }
+                      if (!followHandle.trim()) return;
+                      followUserMutation.mutate({ username: followHandle.trim() });
+                    }}
+                    disabled={!followHandle.trim() || followUserMutation.isPending}
+                    className="plasma-button plasma-button--ghost px-4 py-3 text-white/78 disabled:cursor-not-allowed disabled:opacity-35"
                   >
-                    <option value="open">open capsule</option>
-                    <option value="ama">AMA</option>
-                    <option value="launch-party">launch party</option>
-                    <option value="watch-party">watch party</option>
-                    <option value="study-session">study session</option>
-                  </select>
+                    {followUserMutation.isPending ? 'linking signal...' : 'follow signal'}
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => void scheduleTimeCapsule()}
-                  disabled={!scheduleTopic.trim() || !scheduledFor || scheduleRoomMutation.isPending}
-                  className="plasma-button plasma-button--ghost px-4 py-3 text-white/78 disabled:cursor-not-allowed disabled:opacity-35"
-                >
-                  {scheduleRoomMutation.isPending ? 'arming capsule...' : 'schedule time capsule'}
-                </button>
               </div>
+            )}
 
-              <div className="mt-4 grid gap-2">
-                {scheduledRooms.slice(0, 3).map((room) => {
-                  const minutes = Math.max(0, Math.round((new Date(room.scheduledFor).getTime() - Date.now()) / 60000));
-                  return (
-                    <button
-                      key={room.id}
-                      type="button"
-                      onClick={() => void joinScheduledRoom(room)}
-                      className="organism-ribbon flex items-center justify-between px-3 py-2 text-left transition hover:border-white/22 hover:bg-white/[0.06]"
+            {controlDeckMode === 'schedule' && (
+              <div className="organism-node organism-node--quiet w-full px-4 py-4">
+                <div className="font-mono text-[10px] uppercase tracking-[0.42em] text-white/34">time capsules</div>
+                <div className="mt-2 text-sm text-white/84">
+                  Schedule a room people can plan around instead of hoping to catch by chance.
+                </div>
+
+                <div className="mt-4 flex flex-col gap-3">
+                  <input
+                    value={scheduleTopic}
+                    onChange={(event) => setScheduleTopic(event.target.value.slice(0, 60))}
+                    placeholder="future room topic"
+                    className="signal-input text-sm"
+                  />
+                  <textarea
+                    value={scheduleDescription}
+                    onChange={(event) => setScheduleDescription(event.target.value.slice(0, 180))}
+                    placeholder="why should people show up?"
+                    rows={3}
+                    className="signal-area text-sm"
+                  />
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <input
+                      type="datetime-local"
+                      value={scheduledFor}
+                      onChange={(event) => setScheduledFor(event.target.value)}
+                      className="signal-input text-sm"
+                    />
+                    <select
+                      value={scheduleKind}
+                      onChange={(event) => setScheduleKind(event.target.value as typeof scheduleKind)}
+                      className="signal-select text-sm"
                     >
-                      <div>
-                        <div className="text-sm text-white/84">{room.topic}</div>
-                        <div className="mt-1 text-xs text-white/46">
-                          {room.creatorUsername} - {room.kind} - {minutes} min
+                      <option value="open">open capsule</option>
+                      <option value="ama">AMA</option>
+                      <option value="launch-party">launch party</option>
+                      <option value="watch-party">watch party</option>
+                      <option value="study-session">study session</option>
+                    </select>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void scheduleTimeCapsule()}
+                    disabled={!scheduleTopic.trim() || !scheduledFor || scheduleRoomMutation.isPending}
+                    className="plasma-button plasma-button--ghost px-4 py-3 text-white/78 disabled:cursor-not-allowed disabled:opacity-35"
+                  >
+                    {scheduleRoomMutation.isPending ? 'arming capsule...' : 'schedule time capsule'}
+                  </button>
+                </div>
+                <div className="mt-4 grid gap-2">
+                  {scheduledRooms.slice(0, 2).map((room) => {
+                    const minutes = Math.max(0, Math.round((new Date(room.scheduledFor).getTime() - Date.now()) / 60000));
+                    return (
+                      <button
+                        key={room.id}
+                        type="button"
+                        onClick={() => void joinScheduledRoom(room)}
+                        className="organism-ribbon flex items-center justify-between px-3 py-2 text-left transition hover:border-white/22 hover:bg-white/[0.06]"
+                      >
+                        <div>
+                          <div className="text-sm text-white/84">{room.topic}</div>
+                          <div className="mt-1 text-xs text-white/46">
+                            {room.creatorUsername} - {room.kind} - {minutes} min
+                          </div>
                         </div>
-                      </div>
-                      <div className="font-mono text-[10px] uppercase tracking-[0.28em] text-white/42">
-                        {minutes <= 10 ? 'enter' : 'countdown'}
-                      </div>
-                    </button>
-                  );
-                })}
+                        <div className="font-mono text-[10px] uppercase tracking-[0.28em] text-white/42">
+                          {minutes <= 10 ? 'enter' : 'countdown'}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
 
             <PlatformStatus
               runtime={runtime}

@@ -41,10 +41,11 @@ export function LivingBackdrop({
   const frameRef = useRef<number>(0);
   const pointerRef = useRef({ x: 0.5, y: 0.5 });
   const ripplesRef = useRef<Ripple[]>([]);
+  const pointerFrameRef = useRef<number | null>(null);
   const palette = useMemo(() => [primary, secondary, tertiary], [primary, secondary, tertiary]);
   const seeds = useMemo<NodeSeed[]>(
     () =>
-      Array.from({ length: mode === 'landing' ? 54 : 42 }, (_, index) => ({
+      Array.from({ length: mode === 'landing' ? 30 : 22 }, (_, index) => ({
         x: Math.random(),
         y: Math.random(),
         vx: (Math.random() - 0.5) * 0.00024,
@@ -61,9 +62,10 @@ export function LivingBackdrop({
     if (!canvas) return;
     const context = canvas.getContext('2d');
     if (!context) return;
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     const resize = () => {
-      const ratio = window.devicePixelRatio || 1;
+      const ratio = Math.min(window.devicePixelRatio || 1, reducedMotion ? 1 : 1.25);
       canvas.width = Math.floor(window.innerWidth * ratio);
       canvas.height = Math.floor(window.innerHeight * ratio);
       canvas.style.width = `${window.innerWidth}px`;
@@ -117,7 +119,7 @@ export function LivingBackdrop({
       context.fillStyle = membrane;
       context.fillRect(0, 0, width, height);
 
-      if (now % 2400 < 18) {
+      if (!reducedMotion && now % 2800 < 18) {
         const rippleX = width * (0.3 + Math.sin(now * 0.00018) * 0.22 + 0.2);
         const rippleY = height * (mode === 'landing' ? 0.46 : 0.55) + Math.cos(now * 0.00022) * 42;
         spawnRipple(rippleX, rippleY, Math.floor(now / 2400) % 3);
@@ -194,13 +196,17 @@ export function LivingBackdrop({
     };
 
     const handlePointer = (event: PointerEvent) => {
-      pointerRef.current = {
-        x: event.clientX / Math.max(1, window.innerWidth),
-        y: event.clientY / Math.max(1, window.innerHeight),
-      };
-      if (Math.random() > 0.94) {
-        spawnRipple(event.clientX, event.clientY, Math.floor(Math.random() * palette.length));
-      }
+      if (pointerFrameRef.current !== null) return;
+      pointerFrameRef.current = requestAnimationFrame(() => {
+        pointerFrameRef.current = null;
+        pointerRef.current = {
+          x: event.clientX / Math.max(1, window.innerWidth),
+          y: event.clientY / Math.max(1, window.innerHeight),
+        };
+        if (!reducedMotion && Math.random() > 0.975) {
+          spawnRipple(event.clientX, event.clientY, Math.floor(Math.random() * palette.length));
+        }
+      });
     };
 
     resize();
@@ -210,6 +216,7 @@ export function LivingBackdrop({
 
     return () => {
       cancelAnimationFrame(frameRef.current);
+      if (pointerFrameRef.current !== null) cancelAnimationFrame(pointerFrameRef.current);
       window.removeEventListener('resize', resize);
       window.removeEventListener('pointermove', handlePointer);
     };
