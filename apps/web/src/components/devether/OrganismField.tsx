@@ -13,6 +13,9 @@ import {
 interface OrganismFieldProps {
   topic: string;
   vibeColor: string;
+  temperature: number;
+  activeTypers: number;
+  isChaos: boolean;
   messages: RiftMessage[];
   users: Record<string, RiftUser>;
   fragments: Fragment[];
@@ -56,6 +59,9 @@ function glitchText(content: string, stage: number) {
 export function OrganismField({
   topic,
   vibeColor,
+  temperature,
+  activeTypers,
+  isChaos,
   messages,
   users,
   fragments,
@@ -92,6 +98,8 @@ export function OrganismField({
       ),
     [resolvedUserColors, users],
   );
+  const heatRatio = clamp(temperature / 100, 0, 1);
+  const conversationState = isChaos ? 'intense' : heatRatio > 0.62 || activeTypers > 2 ? 'active' : 'calm';
 
   const recentActivity = useMemo(() => {
     const activityMap: Record<string, number> = {};
@@ -233,10 +241,16 @@ export function OrganismField({
         1.55,
       );
       const color = roomColors[user.id] ?? user.color;
+      const state =
+        user.isTyping || actionEnergy > 1.08 ? 'intense' : actionEnergy > 0.58 ? 'active' : 'calm';
+      const stateAccent =
+        state === 'intense' ? '#ff1493' : state === 'active' ? '#ccff00' : '#00f5ff';
 
       return {
         user,
         color,
+        state,
+        stateAccent,
         x: center.x + Math.cos(angle) * radius,
         y: center.y + Math.sin(angle) * radius * 0.55,
         driftDuration: 11 + (hash % 5),
@@ -272,6 +286,22 @@ export function OrganismField({
     });
     return paths;
   }, [center, visibleMessages]);
+
+  const fragmentPaths = useMemo(() => {
+    return fragments.slice(-4).map((fragment, index) => {
+      const hash = Math.abs(hashString(fragment.id));
+      const from = {
+        x: center.x + Math.cos((hash % 360) * (Math.PI / 180)) * (220 + index * 22),
+        y: center.y + Math.sin(((hash % 360) * 1.2) * (Math.PI / 180)) * 116,
+      };
+
+      return {
+        id: fragment.id,
+        color: roomColors[fragment.userId] ?? fragment.userColor,
+        d: buildConnectionPath(from, center, (index % 2 === 0 ? 1 : -1) * 42),
+      };
+    });
+  }, [center, fragments, roomColors]);
 
   const membraneBands = useMemo(
     () =>
@@ -319,6 +349,18 @@ export function OrganismField({
         <ellipse
           cx={center.x}
           cy={center.y}
+          rx={Math.min(viewport.width, viewport.height) * (0.24 + heatRatio * 0.07)}
+          ry={Math.min(viewport.width, viewport.height) * (0.1 + heatRatio * 0.04)}
+          fill={isChaos ? '#ff1493' : vibeColor}
+          fillOpacity={0.04 + heatRatio * 0.08}
+          filter="url(#field-glow)"
+          className={isChaos ? 'vibe-morph-fast' : conversationState === 'active' ? 'vibe-morph-medium' : 'vibe-morph-slow'}
+          style={{ transformOrigin: `${center.x}px ${center.y}px` }}
+        />
+
+        <ellipse
+          cx={center.x}
+          cy={center.y}
           rx={Math.min(viewport.width, viewport.height) * 0.3}
           ry={Math.min(viewport.width, viewport.height) * 0.12}
           fill="url(#membrane-wash)"
@@ -351,6 +393,20 @@ export function OrganismField({
             strokeOpacity={path.opacity}
             strokeWidth={path.width}
             strokeLinecap="round"
+          />
+        ))}
+
+        {fragmentPaths.map((path) => (
+          <path
+            key={`fragment-${path.id}`}
+            d={path.d}
+            fill="none"
+            stroke={path.color}
+            strokeOpacity="0.12"
+            strokeWidth="1.2"
+            strokeDasharray="2 10"
+            strokeLinecap="round"
+            className="fragment-wisp"
           />
         ))}
 
@@ -498,7 +554,7 @@ export function OrganismField({
           );
         })}
 
-        {userFields.map(({ user, color, x, y, driftDuration, driftDelay, actionEnergy }) => (
+        {userFields.map(({ user, color, state, stateAccent, x, y, driftDuration, driftDelay, actionEnergy }) => (
           <div
             key={user.id}
             className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 text-center"
@@ -511,7 +567,7 @@ export function OrganismField({
             <span
               className="absolute left-1/2 top-1/2 h-14 w-24 -translate-x-1/2 -translate-y-1/2 rounded-full aura-trace"
               style={{
-                background: `linear-gradient(90deg, transparent 0%, ${color}22 45%, transparent 100%)`,
+                background: `linear-gradient(90deg, transparent 0%, ${stateAccent}28 45%, transparent 100%)`,
                 filter: 'blur(8px)',
                 opacity: user.isGhost ? 0.08 : 0.24 + actionEnergy * 0.16,
                 transform: `translate(-50%, -50%) rotate(${Math.round((x - center.x) * 0.06)}deg)`,
@@ -521,7 +577,7 @@ export function OrganismField({
               className="absolute rounded-full aura-breathe"
               style={{
                 inset: `${-18 - actionEnergy * 8}px`,
-                background: `radial-gradient(circle, ${color}28 0%, transparent 74%)`,
+                background: `radial-gradient(circle, ${stateAccent}28 0%, transparent 74%)`,
                 opacity: user.isGhost ? 0.12 : 0.28 + actionEnergy * 0.18,
                 filter: 'blur(14px)',
                 animationDelay: `${driftDelay}s`,
@@ -533,7 +589,7 @@ export function OrganismField({
                 width: 26 + actionEnergy * 12,
                 height: 26 + actionEnergy * 12,
                 border: `1px solid ${color}`,
-                boxShadow: `0 0 ${28 + actionEnergy * 22}px ${color}`,
+                boxShadow: `0 0 ${28 + actionEnergy * 22}px ${color}, 0 0 ${48 + actionEnergy * 30}px ${stateAccent}22`,
                 opacity: user.isGhost ? 0.24 : 0.76,
                 background: `radial-gradient(circle, ${color}${user.isGhost ? '22' : '66'} 0%, transparent 72%)`,
                 animationDelay: `${driftDelay}s`,
@@ -543,7 +599,7 @@ export function OrganismField({
                 className="absolute rounded-full aura-breathe"
                 style={{
                   inset: `${-10 - actionEnergy * 4}px`,
-                  border: `1px solid ${color}`,
+                  border: `1px solid ${stateAccent}`,
                   opacity: user.isGhost ? 0.1 : 0.18 + actionEnergy * 0.14,
                   animationDuration: '5.4s',
                   animationDelay: `${driftDelay - 0.6}s`,
@@ -553,15 +609,26 @@ export function OrganismField({
                 className={`absolute rounded-full ${user.isTyping ? 'aura-breathe-fast' : 'aura-breathe'}`}
                 style={{
                   inset: `${-20 - actionEnergy * 7}px`,
-                  border: `1px solid ${color}`,
+                  border: `1px solid ${stateAccent}`,
                   opacity: user.isGhost ? 0.06 : 0.1 + actionEnergy * 0.12,
-                  animationDuration: user.isTyping ? '2s' : '6.2s',
+                  animationDuration: state === 'intense' ? '0.8s' : state === 'active' ? '1.5s' : '3s',
                   animationDelay: `${driftDelay - 1.1}s`,
                 }}
               />
             </div>
             <div className="mt-2 font-mono text-[10px] uppercase tracking-[0.26em] text-white/32">
               {user.username}
+            </div>
+            <div className="mt-1 h-[2px] w-12 overflow-hidden rounded-full bg-white/8">
+              <div
+                className={state === 'intense' ? 'aura-strobe' : state === 'active' ? 'aura-breathe-fast' : 'aura-breathe'}
+                style={{
+                  width: `${28 + actionEnergy * 46}%`,
+                  height: '100%',
+                  background: stateAccent,
+                  boxShadow: `0 0 10px ${stateAccent}`,
+                }}
+              />
             </div>
           </div>
         ))}

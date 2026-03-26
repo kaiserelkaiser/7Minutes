@@ -162,6 +162,9 @@ export default function Rift() {
         secondary={session.color}
         tertiary={isChaos ? '#ff3366' : '#9d00ff'}
         energy={isChaos ? 0.92 : 0.7}
+        temperature={temperature}
+        activeTypers={activeTypers}
+        isChaos={isChaos}
         mode="rift"
       />
       <div className="screen-watermark-overlay" />
@@ -176,6 +179,9 @@ export default function Rift() {
       <OrganismField
         topic={topic}
         vibeColor={vibe}
+        temperature={temperature}
+        activeTypers={activeTypers}
+        isChaos={isChaos}
         messages={messages}
         users={users}
         fragments={fragments}

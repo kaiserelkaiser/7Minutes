@@ -652,6 +652,10 @@
     will-change: transform, opacity;
   }
 
+  .aura-strobe {
+    animation: aura-strobe 0.6s ease-in-out infinite;
+  }
+
   .message-grab {
     cursor: grab;
     transition:
@@ -668,6 +672,22 @@
   .message-grab:active,
   .message-grab--held {
     cursor: grabbing;
+  }
+
+  .vibe-morph-slow {
+    animation: vibe-morph-slow 14s ease-in-out infinite;
+  }
+
+  .vibe-morph-medium {
+    animation: vibe-morph-medium 8s ease-in-out infinite;
+  }
+
+  .vibe-morph-fast {
+    animation: vibe-morph-fast 4.2s ease-in-out infinite;
+  }
+
+  .fragment-wisp {
+    animation: fragment-wisp 6.4s linear infinite;
   }
 
   ::-webkit-scrollbar {
@@ -757,6 +777,62 @@
   }
   50% {
     opacity: 0.5;
+  }
+}
+
+@keyframes aura-strobe {
+  0%,
+  100% {
+    opacity: 0.34;
+    transform: scaleX(0.82);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+@keyframes vibe-morph-slow {
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+  50% {
+    transform: scale(1.04, 1.1) rotate(4deg);
+  }
+}
+
+@keyframes vibe-morph-medium {
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+  50% {
+    transform: scale(1.08, 1.16) rotate(8deg);
+  }
+}
+
+@keyframes vibe-morph-fast {
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+  50% {
+    transform: scale(1.12, 1.22) rotate(12deg);
+  }
+}
+
+@keyframes fragment-wisp {
+  0% {
+    stroke-dashoffset: 0;
+    opacity: 0.08;
+  }
+  50% {
+    opacity: 0.18;
+  }
+  100% {
+    stroke-dashoffset: -120;
+    opacity: 0.08;
   }
 }
 

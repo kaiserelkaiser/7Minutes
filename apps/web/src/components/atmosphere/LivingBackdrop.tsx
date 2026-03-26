@@ -5,6 +5,9 @@ type LivingBackdropProps = {
   secondary?: string;
   tertiary?: string;
   energy?: number;
+  temperature?: number;
+  activeTypers?: number;
+  isChaos?: boolean;
   mode?: 'landing' | 'rift';
   className?: string;
 };
@@ -34,6 +37,9 @@ export function LivingBackdrop({
   secondary = '#ff00ff',
   tertiary = '#9d00ff',
   energy = 0.55,
+  temperature = 0,
+  activeTypers = 0,
+  isChaos = false,
   mode = 'landing',
   className = '',
 }: LivingBackdropProps) {
@@ -92,6 +98,8 @@ export function LivingBackdrop({
       const width = window.innerWidth;
       const height = window.innerHeight;
       const now = performance.now();
+      const heat = Math.min(1, Math.max(0, temperature / 100));
+      const activity = Math.min(1, activeTypers / 6);
       const px = (pointerRef.current.x - 0.5) * width * 0.08;
       const py = (pointerRef.current.y - 0.5) * height * 0.08;
 
@@ -105,12 +113,40 @@ export function LivingBackdrop({
         height * 0.55,
         Math.max(width, height) * 0.62,
       );
-      wash.addColorStop(0, `${primary}18`);
-      wash.addColorStop(0.36, `${secondary}12`);
-      wash.addColorStop(0.68, `${tertiary}10`);
+      wash.addColorStop(0, `${primary}${isChaos ? '24' : '18'}`);
+      wash.addColorStop(0.32, `${secondary}${heat > 0.58 ? '18' : '12'}`);
+      wash.addColorStop(0.68, `${tertiary}${activity > 0.3 ? '16' : '10'}`);
       wash.addColorStop(1, 'rgba(3, 1, 10, 0)');
       context.fillStyle = wash;
       context.fillRect(0, 0, width, height);
+
+      if (mode === 'rift') {
+        const field = context.createRadialGradient(
+          width * 0.5 + px * 0.45,
+          height * 0.5 + py * 0.35,
+          0,
+          width * 0.5,
+          height * 0.5,
+          Math.max(width, height) * (0.34 + heat * 0.08),
+        );
+        field.addColorStop(0, `rgba(255,255,255,${0.015 + heat * 0.015})`);
+        field.addColorStop(0.35, `${primary}${heat > 0.72 ? '18' : '12'}`);
+        field.addColorStop(0.7, `${isChaos ? '#ff1493' : tertiary}${heat > 0.5 ? '14' : '0d'}`);
+        field.addColorStop(1, 'rgba(3,1,10,0)');
+        context.globalAlpha = 0.6 + heat * 0.22;
+        context.fillStyle = field;
+        context.beginPath();
+        context.ellipse(
+          width * 0.5 + Math.sin(now * 0.00014) * (16 + heat * 24),
+          height * 0.5 + Math.cos(now * 0.00011) * (10 + activity * 18),
+          width * (0.28 + heat * 0.06),
+          height * (0.13 + heat * 0.05),
+          Math.sin(now * 0.00008) * (0.24 + heat * 0.16),
+          0,
+          Math.PI * 2,
+        );
+        context.fill();
+      }
 
       const membrane = context.createLinearGradient(0, 0, width, height);
       membrane.addColorStop(0, 'rgba(255,255,255,0.015)');
@@ -119,7 +155,7 @@ export function LivingBackdrop({
       context.fillStyle = membrane;
       context.fillRect(0, 0, width, height);
 
-      if (!reducedMotion && now % 2800 < 18) {
+      if (!reducedMotion && now % Math.max(950, 2800 - temperature * 12 - activeTypers * 120) < 18) {
         const rippleX = width * (0.3 + Math.sin(now * 0.00018) * 0.22 + 0.2);
         const rippleY = height * (mode === 'landing' ? 0.46 : 0.55) + Math.cos(now * 0.00022) * 42;
         spawnRipple(rippleX, rippleY, Math.floor(now / 2400) % 3);
@@ -127,12 +163,12 @@ export function LivingBackdrop({
 
       ripplesRef.current = ripplesRef.current.filter((ripple) => ripple.life > 0.02);
       for (const ripple of ripplesRef.current) {
-        ripple.radius += ripple.speed * (mode === 'landing' ? 2.1 : 1.7);
+        ripple.radius += ripple.speed * (mode === 'landing' ? 2.1 : 1.5 + heat * 1.1);
         ripple.life *= 0.986;
         context.beginPath();
         context.strokeStyle = palette[ripple.colorIndex];
-        context.globalAlpha = ripple.alpha * ripple.life;
-        context.lineWidth = mode === 'landing' ? 1.3 : 1;
+        context.globalAlpha = ripple.alpha * ripple.life * (mode === 'rift' ? 0.85 : 1);
+        context.lineWidth = mode === 'landing' ? 1.3 : 1 + heat * 0.45;
         context.arc(ripple.x + px * 0.2, ripple.y + py * 0.2, ripple.radius, 0, Math.PI * 2);
         context.stroke();
       }
@@ -158,17 +194,17 @@ export function LivingBackdrop({
           const dx = nodeX - peerX;
           const dy = nodeY - peerY;
           const distance = Math.sqrt(dx * dx + dy * dy);
-          const maxDistance = mode === 'landing' ? 170 : 145;
+          const maxDistance = mode === 'landing' ? 170 : 140 + heat * 40;
           if (distance > maxDistance) continue;
 
           context.beginPath();
           context.strokeStyle = palette[(seed.colorIndex + peer.colorIndex) % palette.length];
-          context.globalAlpha = ((1 - distance / maxDistance) * 0.06 + energy * 0.04) * seed.depth;
-          context.lineWidth = 0.7 + seed.depth * 0.55;
+          context.globalAlpha = ((1 - distance / maxDistance) * 0.05 + energy * 0.03 + heat * 0.025) * seed.depth;
+          context.lineWidth = 0.65 + seed.depth * 0.5 + activity * 0.25;
           context.moveTo(nodeX, nodeY);
           context.quadraticCurveTo(
-            (nodeX + peerX) / 2 + Math.sin(now * 0.001 + inner) * 14,
-            (nodeY + peerY) / 2 + Math.cos(now * 0.0012 + index) * 14,
+            (nodeX + peerX) / 2 + Math.sin(now * (0.001 + heat * 0.0015) + inner) * (14 + heat * 16),
+            (nodeY + peerY) / 2 + Math.cos(now * (0.0012 + activity * 0.001) + index) * (14 + heat * 12),
             peerX,
             peerY,
           );
@@ -220,7 +256,7 @@ export function LivingBackdrop({
       window.removeEventListener('resize', resize);
       window.removeEventListener('pointermove', handlePointer);
     };
-  }, [energy, mode, palette, primary, secondary, seeds, tertiary]);
+  }, [activeTypers, energy, isChaos, mode, palette, primary, secondary, seeds, temperature, tertiary]);
 
   return <canvas ref={canvasRef} className={`pointer-events-none absolute inset-0 h-full w-full ${className}`} aria-hidden="true" />;
 }
