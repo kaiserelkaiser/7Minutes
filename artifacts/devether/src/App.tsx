@@ -23,7 +23,7 @@ function Router() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-[#05010f] text-white/55">
+        <div className="flex min-h-[100svh] items-center justify-center bg-[#05010f] text-white/55">
           <div className="font-mono text-[11px] uppercase tracking-[0.55em]">
             aligning thought particles...
           </div>

@@ -145,7 +145,7 @@ export default function Rift() {
 
   return (
     <main
-      className={`relative min-h-screen overflow-hidden bg-[#0a0118] text-white ${timeLeft <= 30 ? 'last-seconds' : ''}`}
+      className={`relative min-h-[100svh] overflow-x-hidden overflow-y-auto bg-[#0a0118] pb-28 text-white sm:pb-36 ${timeLeft <= 30 ? 'last-seconds' : ''}`}
       style={{
         backgroundImage: `radial-gradient(circle at 50% 50%, ${vibe}18 0%, transparent 34%), linear-gradient(180deg, #0a0118 0%, #04010b 100%)`,
       }}
@@ -173,7 +173,7 @@ export default function Rift() {
       />
 
       <div className="pointer-events-none absolute left-1/2 top-1/2 z-[150] -translate-x-1/2 -translate-y-1/2">
-        <svg width="280" height="280" viewBox="0 0 280 280" className="overflow-visible">
+        <svg width="280" height="280" viewBox="0 0 280 280" className="h-[220px] w-[220px] overflow-visible sm:h-[280px] sm:w-[280px]">
           <circle cx="140" cy="140" r="118" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
           <circle
             cx="140"
@@ -191,20 +191,20 @@ export default function Rift() {
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
           <div className="font-mono text-[11px] uppercase tracking-[0.65em] text-white/34">temporal core</div>
-          <div className="mt-3 font-display text-4xl tracking-[0.38em] text-white">{formatClock(timeLeft)}</div>
-          <div className="mt-3 text-sm uppercase tracking-[0.4em]" style={{ color: vibe }}>{vibeLabel}</div>
+          <div className="mt-3 font-display text-3xl tracking-[0.3em] text-white sm:text-4xl sm:tracking-[0.38em]">{formatClock(timeLeft)}</div>
+          <div className="mt-2 text-xs uppercase tracking-[0.32em] sm:mt-3 sm:text-sm sm:tracking-[0.4em]" style={{ color: vibe }}>{vibeLabel}</div>
         </div>
       </div>
 
-      <div className="pointer-events-none absolute left-8 top-8 z-[150] max-w-sm">
+      <div className="pointer-events-none absolute left-4 top-4 z-[150] max-w-[14rem] sm:left-8 sm:top-8 sm:max-w-sm">
         <div className="font-mono text-[11px] uppercase tracking-[0.58em] text-white/30">organism status</div>
-        <h1 className="mt-4 font-display text-[clamp(1.8rem,4vw,3.6rem)] uppercase tracking-[0.28em] text-white">{topic}</h1>
-        <div className="mt-3 text-sm leading-7 text-white/55">
+        <h1 className="mt-3 font-display text-[clamp(1.35rem,4vw,3.2rem)] uppercase tracking-[0.18em] text-white sm:mt-4 sm:tracking-[0.28em]">{topic}</h1>
+        <div className="mt-2 text-xs leading-6 text-white/55 sm:mt-3 sm:text-sm sm:leading-7">
           {Object.values(users).filter((user) => !user.isRadio).length} visible minds - heat {Math.round(temperature)} - {isChaos ? 'chaos mode' : 'living equilibrium'}
         </div>
       </div>
 
-      <div className="absolute right-8 top-8 z-[160] flex flex-col items-end gap-3">
+      <div className="absolute right-4 top-4 z-[160] flex flex-col items-end gap-2.5 sm:right-8 sm:top-8 sm:gap-3">
         <button
           onClick={() => {
             const next = !isGhostMode;
@@ -230,12 +230,12 @@ export default function Rift() {
         )}
       </div>
 
-      <div className="pointer-events-none absolute bottom-8 left-8 z-[150] max-w-md text-sm leading-7 text-white/46">
+      <div className="pointer-events-none absolute bottom-4 left-4 z-[150] max-w-[min(85vw,22rem)] text-xs leading-6 text-white/46 sm:bottom-8 sm:left-8 sm:max-w-md sm:text-sm sm:leading-7">
         <div className="font-mono text-[11px] uppercase tracking-[0.48em] text-white/28">controls</div>
         <div className="mt-3">Type anywhere. Enter births a thought. Tab becomes a smoke fragment. Escape clears the thought. Hold space on an empty draft for 3 seconds to arm burst mode.</div>
       </div>
 
-      <div className="pointer-events-none absolute bottom-8 right-8 z-[150] text-right text-[10px] uppercase tracking-[0.52em] text-white/16">
+      <div className="pointer-events-none absolute bottom-4 right-4 z-[150] max-w-[42vw] text-right text-[9px] uppercase tracking-[0.38em] text-white/16 sm:bottom-8 sm:right-8 sm:max-w-none sm:text-[10px] sm:tracking-[0.52em]">
         <div>{session.username}</div>
         <div className="mt-2">7MINUTES - no history - no replay</div>
         <div className="mt-2">{session.riftId}</div>

@@ -30,9 +30,14 @@
     min-height: 100%;
   }
 
+  #root {
+    min-height: 100svh;
+  }
+
   body {
     margin: 0;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
     background:
       radial-gradient(circle at 15% 20%, rgba(0, 245, 255, 0.08), transparent 24%),
       radial-gradient(circle at 85% 18%, rgba(255, 0, 255, 0.08), transparent 28%),
@@ -145,6 +150,70 @@
   }
   60% {
     transform: translate3d(1px, -1px, 0);
+  }
+}
+
+@media (max-height: 920px) {
+  .landing-shell {
+    padding-top: 0.9rem;
+    padding-bottom: 0.9rem;
+  }
+
+  .landing-grid {
+    gap: 1rem;
+  }
+
+  .landing-hovercard {
+    margin-top: 0.9rem;
+    padding: 0.75rem 0.95rem;
+  }
+
+  .landing-microcopy {
+    margin-top: 0.75rem;
+    gap: 0.35rem 0.9rem;
+  }
+
+  .landing-console {
+    gap: 0.75rem;
+    padding: 0.9rem;
+  }
+
+  .landing-topics .topic-spore {
+    padding: 0.6rem 0.9rem;
+    font-size: 0.65rem;
+  }
+
+  .landing-status {
+    padding-top: 0;
+  }
+}
+
+@media (max-height: 820px) {
+  .landing-shell {
+    padding-top: 0.65rem;
+    padding-bottom: 0.65rem;
+  }
+
+  .landing-grid {
+    gap: 0.75rem;
+  }
+
+  .landing-hovercard {
+    margin-top: 0.7rem;
+  }
+
+  .landing-microcopy {
+    display: none;
+  }
+
+  .landing-console {
+    gap: 0.6rem;
+    padding: 0.8rem;
+  }
+
+  .landing-topics .topic-spore {
+    padding: 0.5rem 0.82rem;
+    font-size: 0.62rem;
   }
 }
 

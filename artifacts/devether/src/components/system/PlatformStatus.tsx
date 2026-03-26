@@ -28,15 +28,15 @@ export function PlatformStatus({
     <motion.div
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
-      className="pointer-events-none absolute bottom-6 left-1/2 z-20 w-[min(92vw,44rem)] -translate-x-1/2 rounded-[42px] border border-white/10 bg-black/20 px-5 py-4 backdrop-blur-xl"
+      className="pointer-events-none z-20 w-full rounded-[28px] border border-white/10 bg-black/20 px-4 py-3 backdrop-blur-xl sm:px-5 sm:py-4"
       style={{ boxShadow: `0 0 28px ${tone}22` }}
     >
-      <div className="flex items-center justify-between gap-6">
+      <div className="flex items-center justify-between gap-4">
         <div>
-          <div className="font-mono text-[10px] uppercase tracking-[0.48em]" style={{ color: tone }}>
+          <div className="font-mono text-[9px] uppercase tracking-[0.42em] sm:text-[10px]" style={{ color: tone }}>
             platform pulse
           </div>
-          <div className="mt-2 text-sm text-white/78">
+          <div className="mt-2 text-xs leading-5 text-white/78 sm:text-sm sm:leading-6">
             {isHealthy
               ? `${roomCount} active organisms detected`
               : isDegraded
@@ -47,7 +47,7 @@ export function PlatformStatus({
           </div>
         </div>
 
-        <div className="text-right text-[10px] uppercase tracking-[0.38em] text-white/34">
+        <div className="text-right text-[9px] uppercase tracking-[0.3em] text-white/34 sm:text-[10px] sm:tracking-[0.38em]">
           <div>{runtime.mode === "split-host" ? "split-host" : "same-origin"}</div>
           <div className="mt-2">{runtime.source}</div>
         </div>
