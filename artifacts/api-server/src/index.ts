@@ -1,15 +1,11 @@
 import { createServer } from "http";
 import { Server as IOServer } from "socket.io";
 import app from "./app";
+import { serverConfig } from "./lib/config";
 import { logger } from "./lib/logger";
 import { setupSocketHandlers } from "./lib/socketHandler";
 
-const rawPort = process.env["PORT"] ?? "3001";
-const port = Number(rawPort);
-
-if (Number.isNaN(port) || port <= 0) {
-  throw new Error(`Invalid PORT value: "${rawPort}"`);
-}
+const port = serverConfig.port;
 
 const httpServer = createServer(app);
 

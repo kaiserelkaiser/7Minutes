@@ -1,29 +1,41 @@
+import { lazy, Suspense, useEffect } from "react";
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-
-import Landing from "@/pages/Landing";
-import Rift from "@/pages/Rift";
 import NotFound from "@/pages/not-found";
-import { useEffect } from "react";
+
+const Landing = lazy(() => import("@/pages/Landing"));
+const Rift = lazy(() => import("@/pages/Rift"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: false,
+      retry: 1,
+      staleTime: 3_000,
       refetchOnWindowFocus: false,
+      refetchOnReconnect: true,
     },
   },
 });
 
 function Router() {
   return (
-    <Switch>
-      <Route path="/" component={Landing} />
-      <Route path="/rift/:id" component={Rift} />
-      <Route component={NotFound} />
-    </Switch>
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-[#05010f] text-white/55">
+          <div className="font-mono text-[11px] uppercase tracking-[0.55em]">
+            aligning thought particles...
+          </div>
+        </div>
+      }
+    >
+      <Switch>
+        <Route path="/" component={Landing} />
+        <Route path="/rift/:id" component={Rift} />
+        <Route component={NotFound} />
+      </Switch>
+    </Suspense>
   );
 }
 

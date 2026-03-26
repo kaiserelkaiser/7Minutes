@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { getRuntimeConfig } from '@/lib/runtime-config';
 
 export interface RiftMessage {
   id: string;
@@ -93,10 +94,7 @@ export function useSocketRift(
   useEffect(() => {
     if (!riftId || !userId || !username || !color) return;
     installAudioUnlock();
-    const socketOrigin =
-      resolveOrigin(import.meta.env.VITE_WS_URL) ??
-      resolveOrigin(import.meta.env.VITE_API_URL) ??
-      "/";
+    const socketOrigin = getRuntimeConfig().socketOrigin ?? "/";
 
     const socket = io(socketOrigin, {
       path: '/socket.io',
@@ -372,10 +370,4 @@ function vibrate(pattern: number | number[]) {
   if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
     navigator.vibrate(pattern);
   }
-}
-
-function resolveOrigin(raw: string | undefined): string | null {
-  const value = raw?.trim();
-  if (!value) return null;
-  return value.replace(/\/+$/, '');
 }

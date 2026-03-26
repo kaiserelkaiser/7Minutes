@@ -4,10 +4,10 @@ import pinoHttp from "pino-http";
 import fs from "node:fs";
 import path from "node:path";
 import router from "./routes";
+import { isAllowedOrigin, serverConfig } from "./lib/config";
 import { logger } from "./lib/logger";
 
 const app: Express = express();
-const allowedOrigins = parseAllowedOrigins(process.env["CORS_ORIGINS"]);
 const frontendDist = path.resolve(globalThis.__dirname, "../../devether/dist/public");
 
 app.use(
@@ -40,7 +40,7 @@ app.use((req, res, next) => {
     "camera=(), microphone=(), geolocation=(), browsing-topics=()",
   );
 
-  if (process.env["NODE_ENV"] === "production") {
+  if (serverConfig.nodeEnv === "production") {
     res.setHeader(
       "Content-Security-Policy",
       "default-src 'self'; connect-src 'self' ws: wss:; img-src 'self' data: blob:; " +
@@ -55,7 +55,7 @@ app.use((req, res, next) => {
 app.use(
   cors({
     origin(origin, callback) {
-      if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+      if (!origin || isAllowedOrigin(origin)) {
         callback(null, true);
         return;
       }
@@ -88,10 +88,3 @@ app.use((err: unknown, _req: express.Request, res: express.Response, _next: expr
 });
 
 export default app;
-
-function parseAllowedOrigins(raw: string | undefined): string[] {
-  return (raw ?? "")
-    .split(",")
-    .map((origin) => origin.trim())
-    .filter(Boolean);
-}

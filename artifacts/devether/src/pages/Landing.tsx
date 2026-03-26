@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'wouter';
 import { motion } from 'framer-motion';
-import { useJoinRift, useListRifts } from '@workspace/api-client-react';
+import { useHealthCheck, useJoinRift, useListRifts } from '@workspace/api-client-react';
 import { RoomUniverse } from '@/components/canvas/RoomUniverse';
+import { PlatformStatus } from '@/components/system/PlatformStatus';
+import { getRuntimeConfig } from '@/lib/runtime-config';
 import { colorFromString } from '@/lib/sevenMinutes';
 import { toast } from '@/hooks/use-toast';
 
@@ -29,14 +31,33 @@ export default function Landing() {
   const [hoveredRoomId, setHoveredRoomId] = useState<string | null>(null);
   const [joinMode, setJoinMode] = useState<'participate' | 'radio'>('participate');
   const [loadingMessage] = useState(() => LOADING_MESSAGES[Math.floor(Math.random() * LOADING_MESSAGES.length)]);
-
-  const { data, refetch, isLoading } = useListRifts();
+  const runtime = useMemo(() => getRuntimeConfig(), []);
+  const {
+    data,
+    isLoading,
+    isError: isRiftsError,
+    error: riftsError,
+  } = useListRifts({
+    query: {
+      queryKey: ['/api/rifts'],
+      staleTime: 3500,
+      refetchInterval: 4000,
+      refetchIntervalInBackground: true,
+    },
+  });
+  const { isSuccess: isHealthy, isLoading: isHealthLoading } = useHealthCheck({
+    query: {
+      queryKey: ['/api/healthz'],
+      staleTime: 10000,
+      retry: 1,
+      refetchInterval: 10000,
+      refetchIntervalInBackground: true,
+    },
+  });
 
   useEffect(() => {
     document.title = '7MINUTES';
-    const interval = setInterval(() => void refetch(), 4000);
-    return () => clearInterval(interval);
-  }, [refetch]);
+  }, []);
 
   const joinMutation = useJoinRift({
     mutation: {
@@ -78,11 +99,14 @@ export default function Landing() {
     () => (username.trim() ? colorFromString(username.trim(), 82, 64) : '#00f5ff'),
     [username],
   );
+  const backendErrorMessage = riftsError instanceof Error ? riftsError.message : null;
+  const isDegraded = isRiftsError;
+  const canJoin = Boolean(username.trim()) && !joinMutation.isPending && !isDegraded;
 
   const enterRoom = (topic: string, roomId?: string, quantum = false) => {
     const handle = username.trim().slice(0, 24);
     const chosenTopic = topic.trim().slice(0, 60);
-    if (!handle || !chosenTopic) return;
+    if (!handle || !chosenTopic || isDegraded) return;
 
     joinMutation.mutate({
       data: {
@@ -200,11 +224,11 @@ export default function Landing() {
               <button
                 key={topic}
                 onClick={() => enterRoom(topic)}
-                disabled={!username.trim() || joinMutation.isPending}
+                disabled={!canJoin}
                 className="topic-spore"
                 style={{
                   animationDelay: `${index * 0.12}s`,
-                  opacity: username.trim() ? 1 : 0.48,
+                  opacity: canJoin ? 1 : 0.48,
                 }}
               >
                 {topic}
@@ -230,7 +254,7 @@ export default function Landing() {
 
           <button
             onClick={() => enterRoom(customTopic)}
-            disabled={!username.trim() || !customTopic.trim() || joinMutation.isPending}
+            disabled={!canJoin || !customTopic.trim()}
             className="pointer-events-auto rounded-full border border-white/15 px-8 py-3 font-mono text-[11px] uppercase tracking-[0.42em] text-white/82 transition hover:border-white/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
           >
             birth custom orbit
@@ -267,7 +291,23 @@ export default function Landing() {
         {isLoading && rifts.length === 0 && (
           <div className="pointer-events-none mt-4 text-sm text-white/36">Scanning the void for active rooms...</div>
         )}
+
+        {isRiftsError && (
+          <div className="pointer-events-none mt-4 max-w-xl text-sm leading-7 text-red-200/78">
+            The lobby shell is awake, but it cannot reach the live room field yet.
+            {backendErrorMessage ? ` ${backendErrorMessage}` : ''}
+          </div>
+        )}
       </section>
+
+      <PlatformStatus
+        runtime={runtime}
+        roomCount={rifts.length}
+        isLoading={isLoading || isHealthLoading}
+        isHealthy={isHealthy && !isRiftsError}
+        isDegraded={isDegraded}
+        errorMessage={backendErrorMessage}
+      />
     </main>
   );
 }
