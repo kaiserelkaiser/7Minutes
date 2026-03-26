@@ -63,6 +63,7 @@ export default function Landing() {
   const [scheduledFor, setScheduledFor] = useState('');
   const [hoveredRoomId, setHoveredRoomId] = useState<string | null>(null);
   const [joinMode, setJoinMode] = useState<'participate' | 'radio'>('participate');
+  const [dockMode, setDockMode] = useState<'live' | 'friends' | 'plan'>('live');
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(
     typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'default',
@@ -434,7 +435,7 @@ export default function Landing() {
 
   return (
     <main className="liquid-stage relative min-h-[100svh] overflow-x-hidden overflow-y-auto text-white">
-      <LivingBackdrop primary={identityGlow} secondary="#ff00ff" tertiary="#9d00ff" energy={0.68} mode="landing" />
+      <LivingBackdrop primary={identityGlow} secondary="#ff00ff" tertiary="#9d00ff" energy={0.66} mode="landing" />
       <RoomUniverse
         rooms={rifts.map((room) => ({
           id: room.id,
@@ -456,67 +457,87 @@ export default function Landing() {
       <div className="screen-watermark-overlay" />
 
       <section className="landing-shell relative z-10 px-4 py-6 sm:px-6 lg:px-8">
-        <div className="mx-auto grid min-h-[100svh] w-full max-w-[1240px] gap-8 lg:grid-cols-[minmax(0,1.04fr)_390px] lg:items-center">
-          <div className="flex flex-col justify-center gap-6 lg:gap-7">
-            <div>
-              <p className="orbital-overline text-[10px] sm:text-[11px]">live room universe</p>
-              <h1 className="hero-wordmark mt-3 text-[clamp(3rem,7vw,6.3rem)] text-white">7MINUTES</h1>
-              <p className="hero-manifesto mt-4">
-                Pick a name. Enter a room. Speak before the thought disappears. The rooms are alive, but the interface stays calm enough to read.
+        <div className="mx-auto grid min-h-[100svh] w-full max-w-[1260px] gap-8 lg:grid-cols-[minmax(0,1.1fr)_390px] lg:items-center lg:gap-10">
+          <div className="flex flex-col justify-center gap-7">
+            <motion.div initial={{ opacity: 0, y: 22 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55 }} className="max-w-[42rem]">
+              <p className="orbital-overline text-[10px] sm:text-[11px]">ephemeral live conversation</p>
+              <h1 className="hero-wordmark mt-4 text-[clamp(3.35rem,8vw,7rem)] text-white">7MINUTES</h1>
+              <p className="hero-manifesto mt-5 max-w-[34rem]">
+                Pick a name. Enter a room. Speak before the thought disappears. The universe stays dramatic. The interface stays clear.
               </p>
-            </div>
+            </motion.div>
 
             <div className="flex flex-wrap gap-2.5">
-              <div className="simple-chip">{presence?.onlineNow ?? 0} online now</div>
+              <div className="simple-chip">{presence?.onlineNow ?? 0} online</div>
               <div className="simple-chip">{presence?.activeRooms ?? rifts.length} active rooms</div>
               <div className="simple-chip">{joinMode === 'radio' ? 'radio mode' : 'live mode'}</div>
               <div className="simple-chip">7 minute decay</div>
             </div>
 
-            <div className="landing-hovercard clean-panel px-5 py-4 sm:px-6">
-              {hoveredRoom ? (
-                <>
-                  <div className="font-mono text-[10px] uppercase tracking-[0.44em]" style={{ color: hoveredRoom.vibeColor }}>
-                    hovered room
+            <div className="clean-panel px-6 py-5">
+              <div className="flex flex-wrap items-start justify-between gap-5">
+                <div className="max-w-[28rem]">
+                  <div className="font-mono text-[10px] uppercase tracking-[0.42em] text-white/34">
+                    {hoveredRoom ? 'selected room' : 'room universe'}
                   </div>
-                  <div className="mt-3 text-xl text-white/92">{hoveredRoom.isQuantum ? 'Quantum Room' : hoveredRoom.topic}</div>
-                  <div className="mt-2 text-sm leading-6 text-white/58">
-                    {hoveredRoom.userCount}/{hoveredRoom.maxUsers} users live. Heat {Math.round(hoveredRoom.temperature)}.
+                  <div className="mt-3 text-[clamp(1.2rem,2vw,1.9rem)] font-medium text-white/92">
+                    {hoveredRoom ? (hoveredRoom.isQuantum ? 'Quantum Room' : hoveredRoom.topic) : 'Hover a sphere to inspect it, or create your own room.'}
                   </div>
-                </>
-              ) : (
-                <>
-                  <div className="font-mono text-[10px] uppercase tracking-[0.44em] text-white/36">room discovery</div>
-                  <div className="mt-3 text-lg text-white/86">Click any orbiting room to enter instantly.</div>
-                  <div className="mt-2 text-sm leading-6 text-white/56">
-                    The room spheres are the only round objects here on purpose. Everything else stays readable.
+                  <div className="mt-2 text-sm leading-6 text-white/54">
+                    {hoveredRoom
+                      ? `${hoveredRoom.userCount}/${hoveredRoom.maxUsers} live now. Heat ${Math.round(hoveredRoom.temperature)}. Click the sphere to join.`
+                      : 'The orbiting room spheres are the navigation. Everything else stays out of their way.'}
                   </div>
-                </>
-              )}
-            </div>
-
-            <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
-              <div className="clean-panel px-5 py-5 sm:px-6">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="font-mono text-[10px] uppercase tracking-[0.42em] text-white/36">who&apos;s here now</div>
-                    <div className="mt-3 text-2xl text-white/94">{presence?.onlineNow ?? 0}</div>
-                    <div className="mt-1 text-sm text-white/54">people online across {presence?.activeRooms ?? rifts.length} live rooms</div>
-                  </div>
-                  {presence?.celebrityAlert && (
-                    <div className="clean-panel-soft px-3 py-3 text-right">
-                      <div className="font-mono text-[10px] uppercase tracking-[0.34em] text-[#ffe27a]">celebrity drop</div>
-                      <div className="mt-2 text-sm text-white/88">@{presence.celebrityAlert.username}</div>
-                      <div className="mt-1 text-xs text-white/54">{presence.celebrityAlert.room}</div>
-                    </div>
-                  )}
                 </div>
 
-                <div className="mt-5 grid gap-4 md:grid-cols-2">
+                {presence?.celebrityAlert ? (
+                  <div className="clean-panel-soft min-w-[190px] px-4 py-4 text-right">
+                    <div className="font-mono text-[10px] uppercase tracking-[0.34em] text-[#ffe27a]">celebrity drop</div>
+                    <div className="mt-2 text-sm text-white/88">@{presence.celebrityAlert.username}</div>
+                    <div className="mt-1 text-xs leading-5 text-white/52">{presence.celebrityAlert.room}</div>
+                  </div>
+                ) : (
+                  <div className="grid min-w-[180px] gap-2">
+                    <div className="simple-chip">{presence?.onlineNow ?? 0} online now</div>
+                    <div className="simple-chip">{presence?.activeRooms ?? rifts.length} live rooms</div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="clean-panel px-5 py-5 sm:px-6">
+              <div className="flex flex-wrap gap-2">
+                {([
+                  ['live', 'live feed'],
+                  ['friends', 'friends'],
+                  ['plan', 'upcoming'],
+                ] as const).map(([mode, label]) => {
+                  const active = dockMode === mode;
+                  return (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => setDockMode(mode)}
+                      className="control-button px-3 py-2 text-[10px] uppercase tracking-[0.24em]"
+                      style={{
+                        background: active ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.04)',
+                        color: active ? '#fff' : 'rgba(255,255,255,0.56)',
+                        borderColor: active ? identityGlow : 'rgba(255,255,255,0.1)',
+                        boxShadow: active ? `0 0 22px ${identityGlow}20` : 'none',
+                      }}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {dockMode === 'live' && (
+                <div className="mt-5 grid gap-4 lg:grid-cols-2">
                   <div>
-                    <div className="font-mono text-[10px] uppercase tracking-[0.34em] text-white/30">trending</div>
+                    <div className="font-mono text-[10px] uppercase tracking-[0.34em] text-white/32">trending</div>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      {(presence?.trendingTopics ?? []).slice(0, 5).map((topic) => (
+                      {(presence?.trendingTopics ?? []).slice(0, 6).map((topic) => (
                         <button
                           key={topic.topic}
                           type="button"
@@ -525,7 +546,7 @@ export default function Landing() {
                             void enterRoom(topic.topic);
                           }}
                           disabled={!canJoin}
-                          className="control-button px-3 py-2 text-left text-xs disabled:opacity-40"
+                          className="control-button px-3 py-2 text-xs disabled:opacity-40"
                         >
                           {topic.topic}
                         </button>
@@ -534,7 +555,33 @@ export default function Landing() {
                   </div>
 
                   <div>
-                    <div className="font-mono text-[10px] uppercase tracking-[0.34em] text-white/30">friends live</div>
+                    <div className="font-mono text-[10px] uppercase tracking-[0.34em] text-white/32">afterglow</div>
+                    {latestHighlight?.bestMoments[0] ? (
+                      <div className="mt-3">
+                        <div className="text-sm leading-6 text-white/88">&quot;{latestHighlight.bestMoments[0].quote}&quot;</div>
+                        <div className="mt-2 text-xs leading-5 text-white/50">{latestHighlight.bestMoments[0].context}</div>
+                        {topShareCard && (
+                          <div className="mt-3 flex gap-2">
+                            <button type="button" onClick={() => void shareMoment(topShareCard)} className="control-button px-3 py-2 text-xs">
+                              share
+                            </button>
+                            <a href={topShareCard.shareUrl} target="_blank" rel="noreferrer" className="control-button px-3 py-2 text-xs text-white/76 no-underline">
+                              open
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="mt-3 text-sm leading-6 text-white/48">Highlights appear here after rooms close.</div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {dockMode === 'friends' && (
+                <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                  <div>
+                    <div className="font-mono text-[10px] uppercase tracking-[0.34em] text-white/32">friends live</div>
                     <div className="mt-3 grid gap-2">
                       {(presence?.friendsOnline ?? []).slice(0, 3).map((friend) => (
                         <button
@@ -549,86 +596,128 @@ export default function Landing() {
                           <div>
                             <div className="text-sm text-white/90">{friend.username}</div>
                             <div className="mt-1 text-xs leading-5 text-white/54">
-                              {friend.roomTopic} · {friend.roomUserCount}/{friend.roomMaxUsers} · {Math.max(1, Math.round(friend.timeLeftSeconds / 60))}m left
+                              {friend.roomTopic} | {friend.roomUserCount}/{friend.roomMaxUsers} | {Math.max(1, Math.round(friend.timeLeftSeconds / 60))}m
                             </div>
                           </div>
-                          <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-white/44">join</span>
+                          <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/44">join</span>
                         </button>
                       ))}
-                      {!presence?.friendsOnline?.length && (
-                        <div className="text-sm text-white/46">No followed users are live right now.</div>
+                      {!presence?.friendsOnline?.length && <div className="text-sm text-white/46">No followed users are live right now.</div>}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="font-mono text-[10px] uppercase tracking-[0.34em] text-white/32">network</div>
+                    <div className="mt-3 grid gap-3">
+                      <input
+                        value={followHandle}
+                        onChange={(event) => setFollowHandle(event.target.value.slice(0, 24))}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' && authSession && followHandle.trim()) {
+                            followUserMutation.mutate({ username: followHandle.trim() });
+                          }
+                        }}
+                        placeholder="follow a username"
+                        className="signal-input text-sm"
+                      />
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!authSession) {
+                              toast({
+                                title: 'Pick a name first',
+                                description: 'Choose a name before following someone.',
+                                variant: 'destructive',
+                              });
+                              return;
+                            }
+                            if (!followHandle.trim()) return;
+                            followUserMutation.mutate({ username: followHandle.trim() });
+                          }}
+                          disabled={!followHandle.trim() || followUserMutation.isPending}
+                          className="control-button px-3 py-2 text-xs disabled:opacity-35"
+                        >
+                          {followUserMutation.isPending ? 'following...' : 'follow'}
+                        </button>
+                        <button type="button" onClick={() => void copyInviteLink()} disabled={!authSession?.user.inviteCode} className="control-button px-3 py-2 text-xs disabled:opacity-35">
+                          copy invite
+                        </button>
+                        <button type="button" onClick={() => void enableNotifications()} className="control-button px-3 py-2 text-xs">
+                          {notificationPermission === 'granted' ? 'alerts on' : 'enable alerts'}
+                        </button>
+                      </div>
+                      {pendingEcho && (
+                        <div className="clean-panel-soft px-4 py-4">
+                          <div className="font-mono text-[10px] uppercase tracking-[0.34em] text-[#9fdfff]">room echo</div>
+                          <div className="mt-2 text-sm text-white/86">{pendingEcho.title}</div>
+                          <div className="mt-2 text-xs leading-5 text-white/50">{pendingEcho.body}</div>
+                          <button type="button" onClick={() => revealEcho(pendingEcho.id)} className="control-button mt-3 px-3 py-2 text-xs">
+                            reveal once
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
 
-              <div className="clean-panel px-5 py-5 sm:px-6">
-                <div className="font-mono text-[10px] uppercase tracking-[0.42em] text-white/36">afterglow</div>
-
-                {latestHighlight?.bestMoments[0] && (
-                  <div className="mt-4">
-                    <div className="text-sm leading-6 text-white/88">&quot;{latestHighlight.bestMoments[0].quote}&quot;</div>
-                    <div className="mt-2 text-xs leading-5 text-white/50">{latestHighlight.bestMoments[0].context}</div>
-                  </div>
-                )}
-
-                {topShareCard && (
-                  <div className="mt-5 clean-panel-soft px-4 py-4">
-                    <div className="text-sm text-white/90">{topShareCard.bestQuote}</div>
-                    <div className="mt-2 text-xs leading-5 text-white/50">{topShareCard.context}</div>
-                    <div className="mt-3 flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => void shareMoment(topShareCard)}
-                        className="control-button px-3 py-2 text-xs"
-                      >
-                        share card
-                      </button>
-                      <a
-                        href={topShareCard.shareUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="control-button px-3 py-2 text-xs text-white/76 no-underline"
-                      >
-                        open
-                      </a>
+              {dockMode === 'plan' && (
+                <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                  <div>
+                    <div className="font-mono text-[10px] uppercase tracking-[0.34em] text-white/32">upcoming rooms</div>
+                    <div className="mt-3 grid gap-2.5">
+                      {scheduledRooms.slice(0, 3).map((room) => {
+                        const minutes = Math.max(0, Math.round((new Date(room.scheduledFor).getTime() - Date.now()) / 60000));
+                        return (
+                          <button
+                            key={room.id}
+                            type="button"
+                            onClick={() => {
+                              void joinScheduledRoom(room);
+                            }}
+                            className="control-button flex items-start justify-between gap-3 px-3 py-3 text-left"
+                          >
+                            <div>
+                              <div className="text-sm text-white/90">{room.topic}</div>
+                              <div className="mt-1 text-xs leading-5 text-white/50">{room.creatorUsername} | {room.kind} | {minutes}m</div>
+                            </div>
+                            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/44">{minutes <= 10 ? 'join' : 'soon'}</span>
+                          </button>
+                        );
+                      })}
+                      {!scheduledRooms.length && <div className="text-sm text-white/46">No scheduled rooms yet.</div>}
                     </div>
                   </div>
-                )}
 
-                {pendingEcho && (
-                  <div className="mt-5 clean-panel-soft px-4 py-4">
-                    <div className="font-mono text-[10px] uppercase tracking-[0.34em] text-[#9fdfff]">room echo</div>
-                    <div className="mt-2 text-sm text-white/86">{pendingEcho.title}</div>
-                    <div className="mt-2 text-xs leading-5 text-white/50">{pendingEcho.body}</div>
-                    <button
-                      type="button"
-                      onClick={() => revealEcho(pendingEcho.id)}
-                      className="control-button mt-3 px-3 py-2 text-xs"
-                    >
-                      reveal once
-                    </button>
+                  <div>
+                    <div className="font-mono text-[10px] uppercase tracking-[0.34em] text-white/32">schedule room</div>
+                    <div className="mt-3 grid gap-3">
+                      <input value={scheduleTopic} onChange={(event) => setScheduleTopic(event.target.value.slice(0, 60))} placeholder="future room topic" className="signal-input text-sm" />
+                      <textarea value={scheduleDescription} onChange={(event) => setScheduleDescription(event.target.value.slice(0, 180))} placeholder="why should people show up?" rows={3} className="signal-area text-sm" />
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <input type="datetime-local" value={scheduledFor} onChange={(event) => setScheduledFor(event.target.value)} className="signal-input text-sm" />
+                        <select value={scheduleKind} onChange={(event) => setScheduleKind(event.target.value as typeof scheduleKind)} className="signal-select text-sm">
+                          <option value="open">open</option>
+                          <option value="ama">AMA</option>
+                          <option value="launch-party">launch party</option>
+                          <option value="watch-party">watch party</option>
+                          <option value="study-session">study session</option>
+                        </select>
+                      </div>
+                      <button type="button" onClick={() => void scheduleTimeCapsule()} disabled={!scheduleTopic.trim() || !scheduledFor || scheduleRoomMutation.isPending} className="control-button px-3 py-3 text-xs disabled:opacity-35">
+                        {scheduleRoomMutation.isPending ? 'scheduling...' : 'schedule room'}
+                      </button>
+                    </div>
                   </div>
-                )}
-
-                {!latestHighlight && !topShareCard && !pendingEcho && (
-                  <div className="mt-4 text-sm leading-6 text-white/48">
-                    Highlights, share cards, and echoes will appear here after rooms close.
-                  </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
 
           <div className="flex flex-col gap-4">
-            <div className="landing-console clean-panel px-5 py-5 sm:px-6">
-              <motion.div
-                initial={{ opacity: 0, scale: 0.92 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.15 }}
-                className="mx-auto flex h-[210px] w-[210px] items-center justify-center"
-              >
+            <div className="landing-console clean-panel px-5 py-6 sm:px-6">
+              <motion.div initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.12, duration: 0.55 }} className="mx-auto flex h-[220px] w-[220px] items-center justify-center">
                 <motion.div
                   animate={{
                     borderRadius: [
@@ -659,14 +748,12 @@ export default function Landing() {
                       placeholder="pick any name"
                       className="w-full border-0 border-b border-white/20 bg-transparent px-0 pb-2.5 text-center text-xl font-medium text-white outline-none placeholder:text-white/24"
                     />
-                    <div className="text-xs leading-5 text-white/46">
-                      {authSession ? `${authSession.user.username} is remembered.` : 'No signup wall. Choose a name and enter.'}
-                    </div>
+                    <div className="text-xs leading-5 text-white/46">{authSession ? `${authSession.user.username} is remembered.` : 'No signup wall. Choose a name and enter.'}</div>
                   </div>
                 </motion.div>
               </motion.div>
 
-              <div className="mt-5 grid grid-cols-2 gap-2">
+              <div className="mt-6 grid grid-cols-2 gap-2">
                 {(['participate', 'radio'] as const).map((mode) => {
                   const active = joinMode === mode;
                   return (
@@ -674,7 +761,7 @@ export default function Landing() {
                       key={mode}
                       type="button"
                       onClick={() => setJoinMode(mode)}
-                      className="control-button px-4 py-3 text-xs uppercase tracking-[0.28em]"
+                      className="control-button px-4 py-3 text-xs uppercase tracking-[0.24em]"
                       style={{
                         background: active ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.05)',
                         borderColor: active ? identityGlow : 'rgba(255,255,255,0.12)',
@@ -688,10 +775,30 @@ export default function Landing() {
                 })}
               </div>
 
-              <div className="mt-5">
-                <div className="font-mono text-[10px] uppercase tracking-[0.42em] text-white/34">quick room seeds</div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {topicSeeds.map((topic) => (
+              <div className="mt-6 grid gap-3">
+                <input
+                  value={customTopic}
+                  onChange={(event) => setCustomTopic(event.target.value.slice(0, 60))}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' && canJoin && customTopic.trim()) {
+                      void enterRoom(customTopic, undefined, /quantum|void/i.test(customTopic));
+                    }
+                  }}
+                  placeholder="type a room topic"
+                  className="signal-input text-sm"
+                />
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button type="button" onClick={() => void enterRoom(customTopic)} disabled={!canJoin || !customTopic.trim()} className="plasma-button plasma-button--primary px-4 py-3 disabled:opacity-35" style={{ borderColor: identityGlow, boxShadow: `0 0 30px ${identityGlow}22` }}>
+                    join room
+                  </button>
+                  <button type="button" onClick={() => void enterRoom(customTopic || 'Quantum Drift', undefined, true)} disabled={!canJoin} className="plasma-button plasma-button--ghost px-4 py-3 disabled:opacity-35">
+                    quantum
+                  </button>
+                </div>
+
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {topicSeeds.slice(0, 4).map((topic) => (
                     <button
                       key={topic}
                       type="button"
@@ -708,224 +815,8 @@ export default function Landing() {
                 </div>
               </div>
 
-              <div className="mt-5 clean-panel-soft px-4 py-4">
-                <div className="font-mono text-[10px] uppercase tracking-[0.42em] text-white/34">create a room</div>
-                <div className="mt-3 grid gap-3">
-                  <input
-                    value={customTopic}
-                    onChange={(event) => setCustomTopic(event.target.value.slice(0, 60))}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' && canJoin && customTopic.trim()) {
-                        void enterRoom(customTopic, undefined, /quantum|void/i.test(customTopic));
-                      }
-                    }}
-                    placeholder="type a room topic"
-                    className="signal-input text-sm"
-                  />
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => void enterRoom(customTopic)}
-                      disabled={!canJoin || !customTopic.trim()}
-                      className="plasma-button plasma-button--primary px-4 py-3 disabled:opacity-35"
-                      style={{
-                        borderColor: identityGlow,
-                        boxShadow: `0 0 30px ${identityGlow}22`,
-                      }}
-                    >
-                      join room
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void enterRoom(customTopic || 'Quantum Drift', undefined, true)}
-                      disabled={!canJoin}
-                      className="plasma-button plasma-button--ghost px-4 py-3 disabled:opacity-35"
-                    >
-                      quantum
-                    </button>
-                  </div>
-                  <div className="text-xs leading-5 text-white/46">
-                    {joinMode === 'radio'
-                      ? 'Radio mode lets you watch without surfacing as an active participant.'
-                      : 'Participate mode places your messages directly into the room.'}
-                  </div>
-                </div>
-              </div>
-
-              {(joinMutation.isPending || isAuthenticating) && (
-                <div className="mt-4 font-mono text-[10px] uppercase tracking-[0.44em] text-white/40">
-                  {isAuthenticating ? 'locking in your name...' : loadingMessage}
-                </div>
-              )}
+              {(joinMutation.isPending || isAuthenticating) && <div className="mt-4 font-mono text-[10px] uppercase tracking-[0.42em] text-white/38">{isAuthenticating ? 'locking in your name...' : loadingMessage}</div>}
             </div>
-
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-1">
-              <div className="clean-panel px-5 py-5">
-                <div className="font-mono text-[10px] uppercase tracking-[0.42em] text-white/36">network</div>
-                <div className="mt-3 text-sm leading-6 text-white/56">
-                  Follow people, copy your invite link, and enable notifications.
-                </div>
-                <div className="mt-4 grid gap-3">
-                  <input
-                    value={followHandle}
-                    onChange={(event) => setFollowHandle(event.target.value.slice(0, 24))}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' && authSession && followHandle.trim()) {
-                        followUserMutation.mutate({ username: followHandle.trim() });
-                      }
-                    }}
-                    placeholder="follow a username"
-                    className="signal-input text-sm"
-                  />
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!authSession) {
-                          toast({
-                            title: 'Pick a name first',
-                            description: 'Choose a name before following someone.',
-                            variant: 'destructive',
-                          });
-                          return;
-                        }
-                        if (!followHandle.trim()) return;
-                        followUserMutation.mutate({ username: followHandle.trim() });
-                      }}
-                      disabled={!followHandle.trim() || followUserMutation.isPending}
-                      className="control-button px-3 py-3 text-xs disabled:opacity-35"
-                    >
-                      {followUserMutation.isPending ? 'following...' : 'follow'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void copyInviteLink()}
-                      disabled={!authSession?.user.inviteCode}
-                      className="control-button px-3 py-3 text-xs disabled:opacity-35"
-                    >
-                      copy invite
-                    </button>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => void enableNotifications()}
-                    className="control-button px-3 py-3 text-xs"
-                  >
-                    {notificationPermission === 'granted' ? 'notifications on' : 'enable notifications'}
-                  </button>
-                  {inviterLeaderboard.length > 0 && (
-                    <div className="clean-panel-soft px-4 py-4">
-                      <div className="font-mono text-[10px] uppercase tracking-[0.34em] text-white/34">top inviters</div>
-                      <div className="mt-3 grid gap-2">
-                        {inviterLeaderboard.slice(0, 3).map((entry, index) => (
-                          <div key={entry.userId} className="flex items-center justify-between gap-3 text-sm text-white/84">
-                            <span>#{index + 1} {entry.username}</span>
-                            <span className="text-xs text-white/46">{entry.activeInvites} active</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="clean-panel px-5 py-5">
-                <div className="font-mono text-[10px] uppercase tracking-[0.42em] text-white/36">upcoming rooms</div>
-                <div className="mt-3 grid gap-2.5">
-                  {scheduledRooms.slice(0, 3).map((room) => {
-                    const minutes = Math.max(0, Math.round((new Date(room.scheduledFor).getTime() - Date.now()) / 60000));
-                    return (
-                      <button
-                        key={room.id}
-                        type="button"
-                        onClick={() => {
-                          void joinScheduledRoom(room);
-                        }}
-                        className="control-button flex items-start justify-between gap-3 px-3 py-3 text-left"
-                      >
-                        <div>
-                          <div className="text-sm text-white/90">{room.topic}</div>
-                          <div className="mt-1 text-xs leading-5 text-white/50">
-                            {room.creatorUsername} | {room.kind} | {minutes}m
-                          </div>
-                        </div>
-                        <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-white/42">
-                          {minutes <= 10 ? 'join' : 'soon'}
-                        </span>
-                      </button>
-                    );
-                  })}
-                  {!scheduledRooms.length && (
-                    <div className="text-sm text-white/46">No scheduled rooms yet.</div>
-                  )}
-                </div>
-
-                <div className="mt-5 clean-panel-soft px-4 py-4">
-                  <div className="font-mono text-[10px] uppercase tracking-[0.34em] text-white/34">schedule one</div>
-                  <div className="mt-3 grid gap-3">
-                    <input
-                      value={scheduleTopic}
-                      onChange={(event) => setScheduleTopic(event.target.value.slice(0, 60))}
-                      placeholder="future room topic"
-                      className="signal-input text-sm"
-                    />
-                    <textarea
-                      value={scheduleDescription}
-                      onChange={(event) => setScheduleDescription(event.target.value.slice(0, 180))}
-                      placeholder="why should people show up?"
-                      rows={3}
-                      className="signal-area text-sm"
-                    />
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      <input
-                        type="datetime-local"
-                        value={scheduledFor}
-                        onChange={(event) => setScheduledFor(event.target.value)}
-                        className="signal-input text-sm"
-                      />
-                      <select
-                        value={scheduleKind}
-                        onChange={(event) => setScheduleKind(event.target.value as typeof scheduleKind)}
-                        className="signal-select text-sm"
-                      >
-                        <option value="open">open</option>
-                        <option value="ama">AMA</option>
-                        <option value="launch-party">launch party</option>
-                        <option value="watch-party">watch party</option>
-                        <option value="study-session">study session</option>
-                      </select>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => void scheduleTimeCapsule()}
-                      disabled={!scheduleTopic.trim() || !scheduledFor || scheduleRoomMutation.isPending}
-                      className="control-button px-3 py-3 text-xs disabled:opacity-35"
-                    >
-                      {scheduleRoomMutation.isPending ? 'scheduling...' : 'schedule room'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {(topMemory || profile) && (
-              <div className="clean-panel px-5 py-5">
-                <div className="font-mono text-[10px] uppercase tracking-[0.42em] text-white/36">your signal</div>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <div>
-                    <div className="text-2xl text-white/92">{profile?.stats.currentStreak ?? authSession?.user.currentStreak ?? 0}</div>
-                    <div className="mt-1 text-sm text-white/48">current streak</div>
-                  </div>
-                  <div>
-                    <div className="text-2xl text-white/92">{profile?.reputation ?? authSession?.user.reputation ?? 50}</div>
-                    <div className="mt-1 text-sm text-white/48">reputation</div>
-                  </div>
-                </div>
-                <div className="mt-4 text-sm leading-6 text-white/58">
-                  {topMemory?.essence ?? 'Your first memory will appear here once a room closes.'}
-                </div>
-              </div>
-            )}
 
             <PlatformStatus
               runtime={runtime}
