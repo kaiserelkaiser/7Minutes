@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useParams } from 'wouter';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LivingBackdrop } from '@/components/atmosphere/LivingBackdrop';
@@ -92,6 +92,18 @@ export default function Rift() {
   const vibeLabel = describeVibe(vibe, temperature, isChaos);
   const visibleUsers = Object.values(users).filter((user) => !user.isRadio).length;
   const activeTypers = Object.values(users).filter((user) => user.isTyping && !user.isRadio).length;
+  const statusSignals = [!isConnected ? 'reconnecting' : null, isLastWordGambit ? 'last word' : null]
+    .filter(Boolean)
+    .join(' / ');
+  const inputHint = isRadio
+    ? 'watch only'
+    : burstAvailable
+      ? isContextRoom
+        ? 'type anywhere / enter sends / each message dies at 07:00 / hold space for burst'
+        : 'type anywhere / enter sends / hold space for burst'
+      : isContextRoom
+        ? 'type anywhere / enter sends / each message dies at 07:00 / tab drops fragment'
+        : 'type anywhere / enter sends / tab drops fragment';
   const resolvedUserColors = useMemo(
     () =>
       resolveDistinctRoomColors(
@@ -155,7 +167,7 @@ export default function Rift() {
 
   return (
     <main
-      className={`liquid-stage rift-shell relative min-h-[100svh] overflow-hidden text-white ${timeLeft <= 30 ? 'last-seconds' : ''}`}
+      className={`liquid-stage rift-shell relative min-h-[100svh] overflow-hidden text-white ${!isContextRoom && timeLeft <= 30 ? 'last-seconds' : ''}`}
       style={{
         backgroundImage: `radial-gradient(circle at 50% 50%, ${vibe}18 0%, transparent 34%), linear-gradient(180deg, #0a0118 0%, #04010b 100%)`,
       }}
@@ -312,27 +324,15 @@ export default function Rift() {
         >
           {isRadio ? 'radio' : isGhostMode ? 'ghost' : 'live'}
         </button>
-        {(!isConnected || isLastWordGambit) && (
+        {statusSignals && (
           <div className="pointer-events-none text-right text-[10px] uppercase tracking-[0.22em] text-white/34">
-            {!isConnected ? 'reconnecting' : ''}
-            {!isConnected && isLastWordGambit ? ' · ' : ''}
-            {isLastWordGambit ? 'last word' : ''}
+            {statusSignals}
           </div>
         )}
       </div>
 
       <div className="pointer-events-none absolute bottom-4 left-4 z-[150] max-w-[min(80vw,21rem)] sm:bottom-8 sm:left-8">
-        <div className="text-[10px] uppercase tracking-[0.2em] text-white/28">
-          {isRadio
-            ? 'watch only'
-            : burstAvailable
-              ? isContextRoom
-                ? 'type anywhere · enter sends · messages die in 7:00 · hold space for burst'
-                : 'type anywhere · enter sends · hold space for burst'
-              : isContextRoom
-                ? 'type anywhere · enter sends · messages die in 7:00 · tab drops fragment'
-                : 'type anywhere · enter sends · tab drops fragment'}
-        </div>
+        <div className="text-[10px] uppercase tracking-[0.2em] text-white/28">{inputHint}</div>
       </div>
 
       <div className="pointer-events-none absolute bottom-4 right-4 z-[150] max-w-[70vw] sm:bottom-8 sm:right-8 sm:max-w-none">
@@ -428,3 +428,4 @@ export default function Rift() {
     </main>
   );
 }
+

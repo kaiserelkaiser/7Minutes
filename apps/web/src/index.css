@@ -682,14 +682,79 @@
     cursor: grabbing;
   }
 
+  .context-message-counter {
+    position: absolute;
+    right: 0.9rem;
+    top: 0.85rem;
+    display: flex;
+    min-width: 4.6rem;
+    flex-direction: column;
+    gap: 0.28rem;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--counter-accent) 40%, rgba(255, 255, 255, 0.12));
+    background:
+      radial-gradient(circle at 22% 22%, rgba(255, 255, 255, 0.18), transparent 32%),
+      rgba(8, 4, 22, 0.7);
+    padding: 0.38rem 0.5rem 0.34rem;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.08),
+      0 0 20px color-mix(in srgb, var(--counter-accent) 24%, transparent);
+    backdrop-filter: blur(14px);
+  }
+
+  .context-message-counter__digits {
+    font-family: var(--font-mono);
+    font-size: 0.58rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.82);
+  }
+
+  .context-message-counter__track {
+    position: relative;
+    overflow: hidden;
+    height: 3px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .context-message-counter__fill {
+    display: block;
+    height: 100%;
+    width: calc(var(--counter-ratio) * 100%);
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--counter-accent), rgba(255, 255, 255, 0.92));
+    box-shadow: 0 0 10px var(--counter-accent);
+  }
+
+  .message-explosion-ring {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    border: 2px solid var(--ring-color);
+    box-shadow: 0 0 22px var(--ring-color);
+    transform: translate(-50%, -50%) scale(0.4);
+    mix-blend-mode: screen;
+    animation: message-explosion-ring 0.92s ease-out forwards;
+  }
+
+  .message-explosion-ring--outer {
+    animation-duration: 1.05s;
+    opacity: 0.74;
+  }
+
   .message-explosion-core {
     position: absolute;
     left: 50%;
     top: 50%;
-    width: 14px;
-    height: 14px;
+    width: 16px;
+    height: 16px;
     border-radius: 999px;
     transform: translate(-50%, -50%);
+    mix-blend-mode: screen;
     animation: message-explosion-core 0.9s ease-out forwards;
   }
 
@@ -703,8 +768,25 @@
     background: var(--burst-color);
     box-shadow: 0 0 18px var(--burst-color);
     transform: translate(-50%, -50%);
+    mix-blend-mode: screen;
     animation: message-explosion-particle 0.9s ease-out forwards;
     animation-delay: var(--burst-delay);
+  }
+
+  .message-explosion-streak {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 2px;
+    height: 28px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), var(--streak-color), transparent);
+    box-shadow: 0 0 18px var(--streak-color);
+    transform: translate(-50%, -100%) rotate(var(--streak-rotate));
+    transform-origin: 50% 100%;
+    mix-blend-mode: screen;
+    animation: message-explosion-streak 0.96s ease-out forwards;
+    animation-delay: var(--streak-delay);
   }
 
   .vibe-morph-slow {
@@ -912,15 +994,26 @@
 @keyframes message-explosion-core {
   0% {
     opacity: 0.92;
-    transform: translate(-50%, -50%) scale(0.4);
+    transform: translate(-50%, -50%) scale(calc(0.32 * var(--core-scale, 1)));
   }
   55% {
     opacity: 1;
-    transform: translate(-50%, -50%) scale(2.4);
+    transform: translate(-50%, -50%) scale(calc(2.4 * var(--core-scale, 1)));
   }
   100% {
     opacity: 0;
-    transform: translate(-50%, -50%) scale(4.2);
+    transform: translate(-50%, -50%) scale(calc(4.2 * var(--core-scale, 1)));
+  }
+}
+
+@keyframes message-explosion-ring {
+  0% {
+    opacity: 0.9;
+    transform: translate(-50%, -50%) scale(0.22);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(var(--ring-scale, 1.4));
   }
 }
 
@@ -935,6 +1028,23 @@
   100% {
     opacity: 0;
     transform: translate(calc(-50% + var(--burst-x)), calc(-50% + var(--burst-y))) scale(0.1);
+  }
+}
+
+@keyframes message-explosion-streak {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -100%) rotate(var(--streak-rotate)) scaleY(0.2);
+  }
+  18% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform:
+      translate(-50%, calc(-100% - var(--streak-distance)))
+      rotate(var(--streak-rotate))
+      scaleY(0.08);
   }
 }
 

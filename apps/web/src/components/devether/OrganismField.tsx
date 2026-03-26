@@ -37,6 +37,8 @@ interface PositionedBlob {
   driftDelay: number;
   color: string;
   isPinned: boolean;
+  remainingSeconds: number;
+  remainingRatio: number;
 }
 
 interface DragState {
@@ -51,7 +53,11 @@ interface MessageExplosion {
   y: number;
   color: string;
   intensity: number;
+  palette: string[];
 }
+
+const CONTEXT_MESSAGE_LIFETIME_SECONDS = 420;
+const EXPLOSION_PALETTE = ['#00f5ff', '#ff00ff', '#ccff00', '#ff6b6b', '#9d00ff', '#ffffff'];
 
 function glitchText(content: string, stage: number) {
   if (stage < 3) return content;
@@ -63,6 +69,23 @@ function glitchText(content: string, stage: number) {
       return index % 3 === 0 ? glyphs[index % glyphs.length] : character;
     })
     .join('');
+}
+
+function formatMiniClock(totalSeconds: number) {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+function resolveCounterAccent(secondsRemaining: number) {
+  if (secondsRemaining <= 45) return '#ff6b6b';
+  if (secondsRemaining <= 120) return '#ff1493';
+  if (secondsRemaining <= 240) return '#ccff00';
+  return '#00f5ff';
+}
+
+function buildExplosionPalette(color: string) {
+  return [color, ...EXPLOSION_PALETTE.filter((entry) => entry !== color)].slice(0, 5);
 }
 
 export function OrganismField({
@@ -82,6 +105,7 @@ export function OrganismField({
   const [pinnedPositions, setPinnedPositions] = useState<Record<string, { x: number; y: number }>>({});
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [explosions, setExplosions] = useState<MessageExplosion[]>([]);
+  const [clockTick, setClockTick] = useState(() => Date.now());
   const previousBlobsRef = useRef<Record<string, PositionedBlob>>({});
 
   useEffect(() => {
@@ -114,6 +138,16 @@ export function OrganismField({
   const heatRatio = clamp(temperature / (isContextRoom ? 120 : 100), 0, 1);
   const conversationState = isChaos ? 'intense' : heatRatio > 0.62 || activeTypers > 2 ? 'active' : 'calm';
 
+  useEffect(() => {
+    if (!isContextRoom) return;
+
+    const timer = window.setInterval(() => {
+      setClockTick(Date.now());
+    }, 250);
+
+    return () => window.clearInterval(timer);
+  }, [isContextRoom]);
+
   const recentActivity = useMemo(() => {
     const activityMap: Record<string, number> = {};
 
@@ -131,7 +165,7 @@ export function OrganismField({
   }, [fragments, messages]);
 
   const visibleMessages = useMemo<PositionedBlob[]>(() => {
-    const now = Date.now();
+    const now = isContextRoom ? clockTick : Date.now();
     const sample = messages.slice(-14);
 
     const rawNodes = sample.map((message) => {
@@ -140,6 +174,7 @@ export function OrganismField({
       const width = clamp(132 + message.content.length * 1.5, 156, 286);
       const height = clamp(90 + message.content.length * 0.56, 98, 170);
       const color = roomColors[message.userId] ?? message.userColor;
+      const remainingSeconds = Math.max(0, Math.ceil((new Date(message.expiresAt).getTime() - now) / 1000));
 
       return {
         message,
@@ -148,6 +183,7 @@ export function OrganismField({
         age,
         hash,
         color,
+        remainingSeconds,
       };
     });
 
@@ -198,9 +234,11 @@ export function OrganismField({
         driftDelay: (node.hash % 5) * -1.2,
         color: node.color,
         isPinned: Boolean(pinnedPositions[node.message.id]),
+        remainingSeconds: node.remainingSeconds,
+        remainingRatio: clamp(node.remainingSeconds / CONTEXT_MESSAGE_LIFETIME_SECONDS, 0, 1),
       };
     });
-  }, [center, messages, pinnedPositions, roomColors, viewport]);
+  }, [center, clockTick, isContextRoom, messages, pinnedPositions, roomColors, viewport]);
 
   useEffect(() => {
     const visibleIds = new Set(visibleMessages.map((blob) => blob.message.id));
@@ -227,6 +265,7 @@ export function OrganismField({
         y: blob.y,
         color: blob.color,
         intensity: blob.message.isBurst ? 1.2 : blob.message.decayStage >= 3 ? 1 : 0.82,
+        palette: buildExplosionPalette(blob.color),
       }));
 
     if (expiredBursts.length > 0) {
@@ -462,6 +501,7 @@ export function OrganismField({
         {visibleMessages.map((blob, index) => {
           const scrambled = glitchText(blob.message.content, blob.message.decayStage);
           const isHeld = dragState?.id === blob.message.id;
+          const counterAccent = resolveCounterAccent(blob.remainingSeconds);
 
           return (
             <div
@@ -530,6 +570,22 @@ export function OrganismField({
                 </svg>
 
                 <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-6 text-center">
+                  {isContextRoom && (
+                    <div
+                      className="context-message-counter"
+                      style={
+                        {
+                          '--counter-accent': counterAccent,
+                          '--counter-ratio': `${blob.remainingRatio}`,
+                        } as CSSProperties
+                      }
+                    >
+                      <div className="context-message-counter__digits">{formatMiniClock(blob.remainingSeconds)}</div>
+                      <div className="context-message-counter__track">
+                        <span className="context-message-counter__fill" />
+                      </div>
+                    </div>
+                  )}
                   <div className="font-mono text-[10px] uppercase tracking-[0.34em] text-white/34">
                     {blob.message.username}
                   </div>
@@ -682,16 +738,37 @@ export function OrganismField({
             style={{ left: burst.x, top: burst.y }}
           >
             <span
-              className="message-explosion-core"
-              style={{
-                background: burst.color,
-                boxShadow: `0 0 36px ${burst.color}`,
-                transform: `scale(${burst.intensity})`,
-              }}
+              className="message-explosion-ring"
+              style={
+                {
+                  '--ring-color': burst.palette[0],
+                  '--ring-scale': `${1 + burst.intensity * 0.32}`,
+                } as CSSProperties
+              }
             />
-            {Array.from({ length: 12 }, (_, index) => {
-              const angle = (index / 12) * Math.PI * 2;
-              const distance = 44 + burst.intensity * 18 + (index % 3) * 10;
+            <span
+              className="message-explosion-ring message-explosion-ring--outer"
+              style={
+                {
+                  '--ring-color': burst.palette[1] ?? burst.color,
+                  '--ring-scale': `${1.18 + burst.intensity * 0.4}`,
+                } as CSSProperties
+              }
+            />
+            <span
+              className="message-explosion-core"
+              style={
+                {
+                  background: `radial-gradient(circle, ${burst.palette[4] ?? '#ffffff'} 0%, ${burst.palette[0]} 38%, ${burst.palette[2] ?? burst.color} 100%)`,
+                  boxShadow: `0 0 36px ${burst.palette[0]}, 0 0 72px ${burst.palette[1] ?? burst.color}`,
+                  '--core-scale': `${1 + burst.intensity * 0.46}`,
+                } as CSSProperties
+              }
+            />
+            {Array.from({ length: 18 }, (_, index) => {
+              const angle = (index / 18) * Math.PI * 2;
+              const distance = 50 + burst.intensity * 24 + (index % 4) * 12;
+              const color = burst.palette[index % burst.palette.length] ?? burst.color;
               return (
                 <span
                   key={`${burst.id}-${index}`}
@@ -700,8 +777,26 @@ export function OrganismField({
                     {
                       '--burst-x': `${Math.cos(angle) * distance}px`,
                       '--burst-y': `${Math.sin(angle) * distance}px`,
-                      '--burst-color': burst.color,
-                      '--burst-delay': `${index * 18}ms`,
+                      '--burst-color': color,
+                      '--burst-delay': `${index * 14}ms`,
+                    } as CSSProperties
+                  }
+                />
+              );
+            })}
+            {Array.from({ length: 8 }, (_, index) => {
+              const angle = (index / 8) * Math.PI * 2;
+              const streakDistance = 62 + burst.intensity * 30 + index * 3;
+              return (
+                <span
+                  key={`${burst.id}-streak-${index}`}
+                  className="message-explosion-streak"
+                  style={
+                    {
+                      '--streak-color': burst.palette[(index + 2) % burst.palette.length] ?? burst.color,
+                      '--streak-rotate': `${(angle * 180) / Math.PI}deg`,
+                      '--streak-distance': `${streakDistance}px`,
+                      '--streak-delay': `${index * 22}ms`,
                     } as CSSProperties
                   }
                 />
