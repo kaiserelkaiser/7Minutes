@@ -9,7 +9,7 @@ packages:
   "zustand": "Lightweight state management for canvas/UI shared state"
 
 images:
-  - path: "artifacts/devether/public/images/cyber-texture.png"
+  - path: "apps/web/public/images/cyber-texture.png"
     description: "Abstract subtle dark cyberpunk texture with very faint glowing grid lines, deep purple and black"
     aspect_ratio: "16:9"
 

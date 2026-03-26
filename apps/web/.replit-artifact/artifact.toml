@@ -2,7 +2,7 @@ kind = "web"
 previewPath = "/"
 title = "DevEther"
 version = "1.0.0"
-id = "artifacts/devether"
+id = "apps/web"
 router = "path"
 
 [[integratedSkills]]
@@ -19,7 +19,7 @@ run = "pnpm --filter @workspace/devether run dev"
 
 [services.production]
 build = [ "pnpm", "--filter", "@workspace/devether", "run", "build" ]
-publicDir = "artifacts/devether/dist/public"
+publicDir = "apps/web/dist/public"
 serve = "static"
 
 [[services.production.rewrites]]

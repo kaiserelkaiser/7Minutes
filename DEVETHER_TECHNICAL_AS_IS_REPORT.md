@@ -4,13 +4,13 @@
 This report is based on direct inspection of the current monorepo implementation across backend, frontend, and shared packages.
 
 Primary evidence sources:
-- artifacts/api-server/src/index.ts
-- artifacts/api-server/src/app.ts
-- artifacts/api-server/src/lib/riftManager.ts
-- artifacts/api-server/src/lib/socketHandler.ts
-- artifacts/devether/src/pages/Landing.tsx
-- artifacts/devether/src/pages/Rift.tsx
-- artifacts/devether/src/hooks/use-socket.ts
+- apps/api/src/index.ts
+- apps/api/src/app.ts
+- apps/api/src/lib/riftManager.ts
+- apps/api/src/lib/socketHandler.ts
+- apps/web/src/pages/Landing.tsx
+- apps/web/src/pages/Rift.tsx
+- apps/web/src/hooks/use-socket.ts
 - lib/api-spec/openapi.yaml
 - lib/api-client-react/src/generated/api.ts
 - lib/api-zod/src/generated/api.ts
@@ -34,8 +34,8 @@ Current core characteristic: the platform is intentionally non-persistent at run
 Workspace is pnpm-based with applications and shared libraries.
 
 ### Root Structure
-- artifacts/api-server: Node/Express + Socket.io backend
-- artifacts/devether: React + Vite frontend
+- apps/api: Node/Express + Socket.io backend
+- apps/web: React + Vite frontend
 - lib/api-spec: OpenAPI source
 - lib/api-client-react: generated React Query client
 - lib/api-zod: generated runtime validators/types
@@ -44,7 +44,7 @@ Workspace is pnpm-based with applications and shared libraries.
 ### Build/Typecheck Flow
 - Root build script chains typechecking and recursive package builds.
 - Backend uses esbuild for bundled ESM output.
-- Frontend uses Vite, outputting static assets into artifacts/devether/dist/public.
+- Frontend uses Vite, outputting static assets into apps/web/dist/public.
 - Backend serves frontend static assets when build output exists.
 
 ---
