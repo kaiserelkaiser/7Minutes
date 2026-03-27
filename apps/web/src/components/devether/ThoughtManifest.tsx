@@ -27,16 +27,63 @@ export function ThoughtManifest({
   const [cursor, setCursor] = useState({ x: 0, y: 0 });
   const [burstCharging, setBurstCharging] = useState(false);
   const [burstReady, setBurstReady] = useState(false);
+  const [isMobileComposer, setIsMobileComposer] = useState(false);
+  const [composerFocused, setComposerFocused] = useState(false);
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const burstTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pointerFrameRef = useRef<number | null>(null);
   const pendingCursorRef = useRef({ x: 0, y: 0 });
+  const mobileInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
     const initial = { x: window.innerWidth / 2, y: window.innerHeight * 0.72 };
     pendingCursorRef.current = initial;
     setCursor(initial);
   }, []);
+
+  useEffect(() => {
+    const updateMobileState = () => {
+      const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
+      setIsMobileComposer(coarsePointer || window.innerWidth < 860);
+    };
+
+    const updateViewportOffset = () => {
+      const viewport = window.visualViewport;
+      if (!viewport) {
+        setKeyboardOffset(0);
+        return;
+      }
+
+      const offset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
+      setKeyboardOffset(offset);
+    };
+
+    updateMobileState();
+    updateViewportOffset();
+
+    window.addEventListener('resize', updateMobileState);
+    window.visualViewport?.addEventListener('resize', updateViewportOffset);
+    window.visualViewport?.addEventListener('scroll', updateViewportOffset);
+
+    return () => {
+      window.removeEventListener('resize', updateMobileState);
+      window.visualViewport?.removeEventListener('resize', updateViewportOffset);
+      window.visualViewport?.removeEventListener('scroll', updateViewportOffset);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isMobileComposer) return;
+
+    const nextCursor = {
+      x: window.innerWidth / 2,
+      y: window.innerHeight - keyboardOffset - (composerFocused ? 214 : 178),
+    };
+
+    pendingCursorRef.current = nextCursor;
+    setCursor(nextCursor);
+  }, [composerFocused, isMobileComposer, keyboardOffset]);
 
   const announceTyping = useCallback(() => {
     onTyping(true);
@@ -50,6 +97,19 @@ export function ThoughtManifest({
       burstTimerRef.current = null;
     }
     setBurstCharging(false);
+  }, []);
+
+  const toggleBurstArm = useCallback(() => {
+    if (!burstAvailable || mode === 'fragment') return;
+    clearBurstTimer();
+    setBurstReady((current) => !current);
+  }, [burstAvailable, clearBurstTimer, mode]);
+
+  const focusMobileComposer = useCallback(() => {
+    setComposerFocused(true);
+    requestAnimationFrame(() => {
+      mobileInputRef.current?.focus();
+    });
   }, []);
 
   const commit = useCallback(() => {
@@ -66,6 +126,7 @@ export function ThoughtManifest({
     setBurstReady(false);
     clearBurstTimer();
     onTyping(false);
+    mobileInputRef.current?.focus();
   }, [burstAvailable, burstReady, clearBurstTimer, draft, isGhost, isRadio, mode, onDropFragment, onSendMessage, onTyping]);
 
   useEffect(() => {
@@ -264,7 +325,7 @@ export function ThoughtManifest({
               </div>
             </div>
           </div>
-        ) : !isGhost ? (
+        ) : !isGhost && !isMobileComposer ? (
           <div className="-translate-x-1/2 -translate-y-1/2 text-center" style={{ color: vibeColor }}>
             <div className="font-mono text-[9px] uppercase tracking-[0.34em] text-white/24">
               type anywhere
@@ -318,6 +379,104 @@ export function ThoughtManifest({
           />
         );
       })}
+
+      {isMobileComposer && (
+        <div
+          className="pointer-events-none absolute inset-x-0 bottom-0 z-[165] px-4"
+          style={{
+            transform: `translateY(-${keyboardOffset}px)`,
+            paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 14px)',
+          }}
+        >
+          {!composerFocused && !draft && !isGhost && (
+            <div className="mb-3 flex justify-center">
+              <button
+                type="button"
+                onClick={focusMobileComposer}
+                className="mobile-thought-orb pointer-events-auto"
+              >
+                <span className="mobile-thought-orb__pulse" />
+                <span className="mobile-thought-orb__core">
+                  <span className="mobile-thought-orb__title">open channel</span>
+                  <span className="mobile-thought-orb__hint">tap to bring in the keyboard</span>
+                </span>
+              </button>
+            </div>
+          )}
+
+          <div className="mobile-thought-dock pointer-events-auto mx-auto max-w-xl">
+            <div className="mobile-thought-dock__topline">
+              <div className="mobile-thought-dock__label">
+                {mode === 'fragment' ? 'question fragment' : burstReady ? 'burst armed' : 'live thought'}
+              </div>
+              {!isGhost ? (
+                <button
+                  type="button"
+                  onClick={() => setMode((current) => (current === 'message' ? 'fragment' : 'message'))}
+                  className="mobile-thought-dock__toggle"
+                >
+                  {mode === 'fragment' ? 'switch to message' : 'switch to fragment'}
+                </button>
+              ) : (
+                <div className="mobile-thought-dock__ghost">ghost mode</div>
+              )}
+            </div>
+
+            <div className="mobile-thought-dock__composer">
+              <textarea
+                ref={mobileInputRef}
+                value={draft}
+                onFocus={() => setComposerFocused(true)}
+                onBlur={() => setComposerFocused(false)}
+                onChange={(event) => {
+                  if (burstCharging) clearBurstTimer();
+                  setDraft(event.target.value);
+                  announceTyping();
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault();
+                    commit();
+                  }
+                }}
+                rows={2}
+                maxLength={280}
+                enterKeyHint={mode === 'fragment' ? 'done' : 'send'}
+                autoCapitalize="sentences"
+                autoCorrect="on"
+                placeholder={
+                  isGhost
+                    ? 'ghost mode blocks your output'
+                    : mode === 'fragment'
+                      ? 'drop a fragment into the room'
+                      : 'tap here and send a thought'
+                }
+                className="mobile-thought-dock__input"
+              />
+
+              <div className="mobile-thought-dock__actions">
+                <button
+                  type="button"
+                  onClick={toggleBurstArm}
+                  disabled={!burstAvailable || mode === 'fragment'}
+                  className={`mobile-thought-dock__burst ${burstReady ? 'mobile-thought-dock__burst--armed' : ''}`}
+                >
+                  {burstReady ? 'burst ready' : 'burst'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={commit}
+                  disabled={!draft.trim() || isGhost}
+                  className="mobile-thought-dock__send"
+                >
+                  {mode === 'fragment' ? 'drop' : 'send'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {(mode === 'fragment' || burstCharging || burstReady || isGhost) && (
         <div className="pointer-events-none absolute left-1/2 top-10 -translate-x-1/2 text-center">
