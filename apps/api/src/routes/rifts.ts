@@ -8,6 +8,7 @@ import {
   addUserToRift,
   findOrCreateRift,
   getActiveRifts,
+  getRiftById,
   MAX_USERS_PER_RIFT,
   type RiftType,
 } from "../lib/riftManager";
@@ -118,6 +119,32 @@ router.post("/rifts/join", (req, res) => {
     },
   });
   res.json(data);
+});
+
+router.get("/rifts/:id", (req, res) => {
+  const rift = getRiftById(req.params.id);
+  if (!rift) {
+    res.status(404).json({ error: "Rift not found" });
+    return;
+  }
+
+  res.json({
+    rift: {
+      id: rift.id,
+      topic: rift.topic,
+      type: rift.type,
+      isQuantum: rift.isQuantum,
+      persistsUntilEmpty: rift.type === "context",
+      userCount: rift.users.size,
+      maxUsers: MAX_USERS_PER_RIFT,
+      createdAt: rift.createdAt,
+      expiresAt: rift.expiresAt,
+      vibeColor: rift.vibeColor,
+      temperature: rift.temperature,
+      isChaosMode: rift.isChaosMode,
+    },
+    joinable: rift.users.size < MAX_USERS_PER_RIFT,
+  });
 });
 
 export default router;

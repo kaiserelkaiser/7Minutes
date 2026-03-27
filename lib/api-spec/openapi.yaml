@@ -253,8 +253,32 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/Rift"
-                required:
-                  - rifts
+                  required:
+                    - rifts
+  /rifts/{id}:
+    get:
+      operationId: getRiftById
+      tags: [rifts]
+      summary: Get a single active rift for direct sharing and join flows
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Rift found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetRiftResponse"
+        "404":
+          description: Rift not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /rifts/join:
     post:
       operationId: joinRift
@@ -516,11 +540,21 @@ components:
         - riftId
         - userId
         - userColor
-        - asRadio
-        - sessionToken
-        - rift
-    Badge:
+          - asRadio
+          - sessionToken
+          - rift
+    GetRiftResponse:
       type: object
+      properties:
+        rift:
+          $ref: "#/components/schemas/Rift"
+        joinable:
+          type: boolean
+      required:
+        - rift
+        - joinable
+      Badge:
+        type: object
       properties:
         type:
           type: string

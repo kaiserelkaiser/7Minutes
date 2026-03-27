@@ -1,16 +1,47 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useParams } from 'wouter';
 import { motion, AnimatePresence } from 'framer-motion';
+import {
+  loginUser as loginUserRequest,
+  registerUser as registerUserRequest,
+  useJoinRift,
+} from '@workspace/api-client-react';
 import { LivingBackdrop } from '@/components/atmosphere/LivingBackdrop';
 import { OrganismField } from '@/components/devether/OrganismField';
 import { ThoughtManifest } from '@/components/devether/ThoughtManifest';
 import { useSocketRift } from '@/hooks/use-socket';
-import { clearStoredRoomSession, getStoredRoomSession } from '@/lib/auth-session';
+import {
+  clearStoredAuthSession,
+  clearStoredRoomSession,
+  getStoredAuthSession,
+  getStoredRoomSession,
+  persistAuthSession,
+  persistRoomSession,
+  type StoredAuthSession,
+} from '@/lib/auth-session';
+import { getRuntimeConfig } from '@/lib/runtime-config';
 import { formatClock, resolveDistinctRoomColors } from '@/lib/sevenMinutes';
 import { toast } from '@/hooks/use-toast';
 
 const RIFT_DURATION_SECONDS = 420;
 const MESSAGE_DECAY_SECONDS = 420;
+const initialAuthSession = getStoredAuthSession();
+
+type SharedRiftPreview = {
+  id: string;
+  topic: string;
+  type: 'standard' | 'quantum' | 'context';
+  isQuantum: boolean;
+  persistsUntilEmpty: boolean;
+  userCount: number;
+  maxUsers: number;
+  createdAt: string;
+  expiresAt: string;
+  vibeColor: string;
+  temperature: number;
+  isChaosMode: boolean;
+  joinable?: boolean;
+};
 
 function describeVibe(color: string, temperature: number, isChaos: boolean) {
   if (isChaos) return 'chaotic';
@@ -24,6 +55,7 @@ function describeVibe(color: string, temperature: number, isChaos: boolean) {
 export default function Rift() {
   const { id: routeRiftId } = useParams();
   const [, setLocation] = useLocation();
+  const runtime = useMemo(() => getRuntimeConfig(), []);
   const [session, setSession] = useState<{
     userId: string;
     username: string;
@@ -32,22 +64,67 @@ export default function Rift() {
     isRadio?: boolean;
     sessionToken: string;
   } | null>(null);
+  const [authSession, setAuthSession] = useState<StoredAuthSession | null>(initialAuthSession);
+  const [entryName, setEntryName] = useState(initialAuthSession?.user.username ?? '');
+  const [entryMode, setEntryMode] = useState<'participate' | 'radio'>('participate');
+  const [shareRift, setShareRift] = useState<SharedRiftPreview | null>(null);
+  const [isResolvingShare, setIsResolvingShare] = useState(true);
+  const [shareError, setShareError] = useState<string | null>(null);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [isGhostMode, setIsGhostMode] = useState(false);
 
   useEffect(() => {
     const stored = getStoredRoomSession();
-    if (!stored) {
-      setLocation('/');
+    if (stored?.riftId === routeRiftId) {
+      setSession(stored);
+      setShareRift(null);
+      setShareError(null);
+      setIsResolvingShare(false);
       return;
     }
 
-    if (stored.riftId !== routeRiftId) {
-      setLocation('/');
-      return;
+    setSession(null);
+
+    let cancelled = false;
+
+    async function resolveSharedRift() {
+      if (!routeRiftId) {
+        setShareError('This room link is invalid.');
+        setIsResolvingShare(false);
+        return;
+      }
+
+      setIsResolvingShare(true);
+      setShareError(null);
+
+      try {
+        const origin = runtime.publicApiOrigin ?? '';
+        const response = await fetch(`${origin}/api/rifts/${encodeURIComponent(routeRiftId)}`);
+
+        if (!response.ok) {
+          throw new Error(response.status === 404 ? 'This room already dissolved.' : 'Unable to load this room.');
+        }
+
+        const data = (await response.json()) as { rift: SharedRiftPreview; joinable: boolean };
+        if (cancelled) return;
+        setShareRift({ ...data.rift, joinable: data.joinable });
+      } catch (error) {
+        if (cancelled) return;
+        setShareRift(null);
+        setShareError(error instanceof Error ? error.message : 'Unable to load this room.');
+      } finally {
+        if (!cancelled) {
+          setIsResolvingShare(false);
+        }
+      }
     }
 
-    setSession(stored);
-  }, [routeRiftId, setLocation]);
+    void resolveSharedRift();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [routeRiftId, runtime.publicApiOrigin]);
 
   const {
     isConnected,
@@ -77,6 +154,33 @@ export default function Rift() {
     session?.isRadio ?? false,
     session?.sessionToken ?? null,
   );
+
+  const joinMutation = useJoinRift({
+    mutation: {
+      onSuccess: (response) => {
+        const nextRoomSession = {
+          userId: response.userId,
+          username: entryName.trim() || authSession?.user.username || 'signal',
+          color: response.userColor,
+          riftId: response.riftId,
+          isRadio: response.asRadio,
+          sessionToken: response.sessionToken,
+        };
+
+        persistRoomSession(nextRoomSession);
+        setSession(nextRoomSession);
+        setShareError(null);
+        setLocation(`/rift/${response.riftId}`);
+      },
+      onError: (error) => {
+        toast({
+          title: 'Unable to enter this room',
+          description: error instanceof Error ? error.message : 'Try again in a moment.',
+          variant: 'destructive',
+        });
+      },
+    },
+  });
 
   const isRadio = session?.isRadio ?? false;
   const topic = riftState?.topic ?? 'Entering organism';
@@ -112,10 +216,123 @@ export default function Rift() {
     [users],
   );
   const sessionVisualColor = session ? resolvedUserColors[session.userId] ?? session.color : vibe;
+  const shareLink = useMemo(() => {
+    if (typeof window === 'undefined' || !routeRiftId) return '';
+    return `${window.location.origin}/rift/${routeRiftId}`;
+  }, [routeRiftId]);
+
+  async function ensureAuthenticated(handle: string): Promise<StoredAuthSession> {
+    if (authSession && authSession.user.username.toLowerCase() === handle.toLowerCase()) {
+      return authSession;
+    }
+
+    setIsAuthenticating(true);
+    try {
+      const response = await registerUserRequest({
+        username: handle,
+        interests: [shareRift?.topic ?? 'shared room'].filter(Boolean),
+      }).catch(async (error: unknown) => {
+        const apiError = error as { status?: number } | undefined;
+        if (apiError?.status === 409) {
+          return loginUserRequest({ username: handle });
+        }
+        throw error;
+      });
+
+      const nextSession = { token: response.token, user: response.user };
+      persistAuthSession(nextSession);
+      setAuthSession(nextSession);
+      return nextSession;
+    } finally {
+      setIsAuthenticating(false);
+    }
+  }
+
+  async function joinSharedRift() {
+    const handle = (entryName.trim() || authSession?.user.username || '').slice(0, 24);
+    const roomTopic = shareRift?.topic?.trim() ?? '';
+
+    if (!handle) {
+      toast({
+        title: 'Pick a name first',
+        description: 'Choose a name, then enter the room.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!routeRiftId || !roomTopic) {
+      toast({
+        title: 'Room unavailable',
+        description: 'This shared room is no longer available.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      const activeSession = await ensureAuthenticated(handle);
+      joinMutation.mutate({
+        data: {
+          username: activeSession.user.username,
+          topic: roomTopic,
+          riftId: routeRiftId,
+          quantum: shareRift?.type === 'quantum',
+          mode: shareRift?.type === 'context' ? 'context' : 'standard',
+          asRadio: entryMode === 'radio',
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Try another name.';
+      setShareError(message);
+      clearStoredAuthSession();
+      setAuthSession(null);
+      toast({
+        title: 'Unable to authenticate',
+        description: message,
+        variant: 'destructive',
+      });
+    }
+  }
+
+  async function shareCurrentRift() {
+    if (!shareLink) return;
+
+    const shareText = `Join me in ${topic} on 7MINUTES`;
+
+    if (typeof navigator !== 'undefined' && 'share' in navigator) {
+      try {
+        await navigator.share({
+          title: `7MINUTES - ${topic}`,
+          text: shareText,
+          url: shareLink,
+        });
+        return;
+      } catch {
+        // Fall through to clipboard copy.
+      }
+    }
+
+    try {
+      if (typeof navigator === 'undefined' || !navigator.clipboard) {
+        throw new Error('Clipboard unavailable');
+      }
+      await navigator.clipboard.writeText(shareLink);
+      toast({
+        title: 'Share link copied',
+        description: 'Send it to pull someone straight into this room.',
+      });
+    } catch {
+      toast({
+        title: 'Share link',
+        description: shareLink,
+      });
+    }
+  }
 
   useEffect(() => {
-    document.title = `7MINUTES - ${topic}`;
-  }, [topic]);
+    document.title = `7MINUTES - ${session ? topic : shareRift?.topic ?? 'direct join'}`;
+  }, [session, shareRift?.topic, topic]);
 
   useEffect(() => {
     if (!socketError) return;
@@ -162,7 +379,164 @@ export default function Rift() {
   }, []);
 
   if (!session) {
-    return null;
+    const shareVibe = shareRift?.vibeColor ?? '#00f5ff';
+    const shareRoomLabel =
+      shareRift?.type === 'context'
+        ? 'context room'
+        : shareRift?.type === 'quantum'
+          ? 'quantum room'
+          : '7 minute room';
+    const roomMeta = shareRift
+      ? [
+          `${shareRift.userCount}/${shareRift.maxUsers} live`,
+          shareRift.type === 'context' ? 'open until empty' : '7 minute timer',
+          shareRift.isChaosMode ? 'chaos active' : `heat ${Math.round(shareRift.temperature)}`,
+        ]
+      : [];
+
+    return (
+      <main
+        className="liquid-stage relative flex min-h-[100svh] items-center justify-center overflow-hidden px-4 py-8 text-white sm:px-8"
+        style={{
+          backgroundImage: `radial-gradient(circle at 50% 50%, ${shareVibe}18 0%, transparent 34%), linear-gradient(180deg, #0a0118 0%, #04010b 100%)`,
+        }}
+      >
+        <LivingBackdrop
+          primary={shareVibe}
+          secondary={shareVibe}
+          tertiary={shareRift?.isChaosMode ? '#ff3366' : '#9d00ff'}
+          energy={shareRift?.type === 'context' ? 0.6 : 0.72}
+          temperature={shareRift?.temperature ?? 24}
+          activeTypers={0}
+          isChaos={shareRift?.isChaosMode ?? false}
+          mode="rift"
+        />
+        <div className="screen-watermark-overlay" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.05),_transparent_24%),radial-gradient(circle_at_bottom,_rgba(255,0,255,0.12),_transparent_34%)]" />
+
+        <div className="relative z-10 w-full max-w-[42rem]">
+          <div className="clean-panel px-6 py-7 text-center sm:px-10 sm:py-10">
+            <div className="font-mono text-[10px] uppercase tracking-[0.42em] text-white/32">shared room link</div>
+
+            {isResolvingShare ? (
+              <div className="py-12">
+                <div className="font-display text-3xl uppercase tracking-[0.28em] text-white/88">locking onto the room</div>
+                <div className="mt-4 text-sm uppercase tracking-[0.24em] text-white/38">resolving live room state</div>
+              </div>
+            ) : shareRift ? (
+              <>
+                <div className="mt-5 text-[11px] uppercase tracking-[0.28em] text-white/42">{shareRoomLabel}</div>
+                <h1 className="mt-3 font-display text-[clamp(2rem,4vw,3.6rem)] uppercase tracking-[0.14em] text-white/94">
+                  {shareRift.topic}
+                </h1>
+
+                <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-[10px] uppercase tracking-[0.22em] text-white/44">
+                  {roomMeta.map((item) => (
+                    <span key={item} className="simple-chip">
+                      {item}
+                    </span>
+                  ))}
+                </div>
+
+                <div className="mx-auto mt-8 flex w-full max-w-[26rem] flex-col gap-3 text-left">
+                  <input
+                    value={entryName}
+                    onChange={(event) => setEntryName(event.target.value)}
+                    className="signal-input"
+                    maxLength={24}
+                    placeholder="pick a name and enter"
+                  />
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => setEntryMode('participate')}
+                      className="control-button px-4 py-3 text-[10px] uppercase tracking-[0.24em]"
+                      style={{
+                        borderColor: entryMode === 'participate' ? `${shareVibe}66` : 'rgba(255,255,255,0.12)',
+                        color: entryMode === 'participate' ? '#ffffff' : 'rgba(255,255,255,0.62)',
+                        boxShadow: entryMode === 'participate' ? `0 0 24px ${shareVibe}20` : undefined,
+                      }}
+                    >
+                      join live
+                    </button>
+                    <button
+                      onClick={() => setEntryMode('radio')}
+                      className="control-button px-4 py-3 text-[10px] uppercase tracking-[0.24em]"
+                      style={{
+                        borderColor: entryMode === 'radio' ? `${shareVibe}66` : 'rgba(255,255,255,0.12)',
+                        color: entryMode === 'radio' ? '#ffffff' : 'rgba(255,255,255,0.62)',
+                        boxShadow: entryMode === 'radio' ? `0 0 24px ${shareVibe}20` : undefined,
+                      }}
+                    >
+                      listen only
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={() => void joinSharedRift()}
+                    disabled={joinMutation.isPending || isAuthenticating || !entryName.trim() || shareRift.joinable === false}
+                    className="plasma-button plasma-button--primary mt-2 w-full justify-center"
+                  >
+                    {joinMutation.isPending || isAuthenticating
+                      ? 'entering room'
+                      : shareRift.joinable === false
+                        ? 'room is full'
+                        : 'enter this room'}
+                  </button>
+                </div>
+
+                {shareError && (
+                  <div className="mt-4 text-sm uppercase tracking-[0.18em] text-[#ff8d8d]">{shareError}</div>
+                )}
+
+                <div className="mt-6 text-[11px] uppercase tracking-[0.22em] text-white/32">
+                  {shareRift.type === 'context'
+                    ? 'context rooms stay open while people remain. each message still dies after seven minutes.'
+                    : 'shared entry takes you directly into the live room if space is still available.'}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="mt-5 font-display text-3xl uppercase tracking-[0.24em] text-white/88">room unavailable</div>
+                <div className="mt-4 text-sm uppercase tracking-[0.22em] text-white/38">
+                  {shareError ?? 'This link no longer points to a live room.'}
+                </div>
+              </>
+            )}
+
+            <div className="mt-8 flex items-center justify-center gap-3">
+              <button onClick={() => setLocation('/')} className="control-button px-4 py-2 text-[10px] uppercase tracking-[0.24em]">
+                back home
+              </button>
+              {shareLink && shareRift && (
+                <button
+                  onClick={async () => {
+                    try {
+                      if (typeof navigator === 'undefined' || !navigator.clipboard) {
+                        throw new Error('Clipboard unavailable');
+                      }
+                      await navigator.clipboard.writeText(shareLink);
+                      toast({
+                        title: 'Link copied',
+                        description: 'Ready to send.',
+                      });
+                    } catch {
+                      toast({
+                        title: 'Share link',
+                        description: shareLink,
+                      });
+                    }
+                  }}
+                  className="control-button px-4 py-2 text-[10px] uppercase tracking-[0.24em]"
+                >
+                  copy link
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </main>
+    );
   }
 
   return (
@@ -309,6 +683,12 @@ export default function Rift() {
             }}
           />
         </div>
+        <button
+          onClick={() => void shareCurrentRift()}
+          className="pointer-events-auto control-button px-3 py-2 text-[10px] uppercase tracking-[0.24em]"
+        >
+          share
+        </button>
         <button
           onClick={() => {
             const next = !isGhostMode;
