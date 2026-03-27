@@ -69,6 +69,8 @@ export function LivingBackdrop({
     const context = canvas.getContext('2d');
     if (!context) return;
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const targetFrameMs = reducedMotion ? 1000 / 14 : mode === 'landing' ? 1000 / 28 : 1000 / 32;
+    let lastFrameTime = 0;
 
     const resize = () => {
       const ratio = Math.min(window.devicePixelRatio || 1, reducedMotion ? 1 : 1.25);
@@ -94,10 +96,21 @@ export function LivingBackdrop({
       }
     };
 
-    const draw = () => {
+    const draw = (frameTime: number) => {
+      if (document.visibilityState === 'hidden') {
+        frameRef.current = requestAnimationFrame(draw);
+        return;
+      }
+
+      if (frameTime - lastFrameTime < targetFrameMs) {
+        frameRef.current = requestAnimationFrame(draw);
+        return;
+      }
+
+      lastFrameTime = frameTime;
       const width = window.innerWidth;
       const height = window.innerHeight;
-      const now = performance.now();
+      const now = frameTime;
       const heat = Math.min(1, Math.max(0, temperature / 100));
       const activity = Math.min(1, activeTypers / 6);
       const px = (pointerRef.current.x - 0.5) * width * 0.08;

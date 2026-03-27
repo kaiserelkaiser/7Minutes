@@ -75,6 +75,9 @@ export function RoomUniverse({ rooms, hoveredRoomId, onHover, onSelect }: RoomUn
     if (!canvas) return;
     const context = canvas.getContext('2d');
     if (!context) return;
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const targetFrameMs = reducedMotion ? 1000 / 14 : 1000 / 28;
+    let lastFrameTime = 0;
 
     const resize = () => {
       canvas.width = window.innerWidth;
@@ -84,14 +87,25 @@ export function RoomUniverse({ rooms, hoveredRoomId, onHover, onSelect }: RoomUn
     resize();
     window.addEventListener('resize', resize);
 
-    const draw = () => {
+    const draw = (frameTime: number) => {
       if (!context || !canvas) return;
+      if (document.visibilityState === 'hidden') {
+        frameRef.current = requestAnimationFrame(draw);
+        return;
+      }
+
+      if (frameTime - lastFrameTime < targetFrameMs) {
+        frameRef.current = requestAnimationFrame(draw);
+        return;
+      }
+
+      lastFrameTime = frameTime;
 
       const width = canvas.width;
       const height = canvas.height;
       const centerX = width / 2;
       const centerY = height / 2;
-      const now = performance.now() / 1000;
+      const now = frameTime / 1000;
       const pointerX = (pointerRef.current.x - 0.5) * 80;
       const pointerY = (pointerRef.current.y - 0.5) * 40;
 

@@ -65,6 +65,7 @@ export default function Landing() {
   const [roomMode, setRoomMode] = useState<'standard' | 'quantum' | 'context'>('standard');
   const [dockMode, setDockMode] = useState<'live' | 'friends' | 'plan'>('live');
   const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [landingStage, setLandingStage] = useState<'boot' | 'interactive' | 'enhanced'>('boot');
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(
     typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'default',
   );
@@ -73,6 +74,9 @@ export default function Landing() {
   );
 
   const runtime = useMemo(() => getRuntimeConfig(), []);
+  const showUniverse = landingStage !== 'boot';
+  const enableRealtimeFeed = landingStage !== 'boot';
+  const enableExtendedFeed = landingStage === 'enhanced';
   const inviteCodeFromUrl = useMemo(() => {
     if (typeof window === 'undefined') return '';
     return new URLSearchParams(window.location.search).get('invite')?.trim() ?? '';
@@ -81,32 +85,33 @@ export default function Landing() {
   const riftsQuery = useListRifts({
     query: {
       queryKey: ['/api/rifts'],
-      staleTime: 3500,
-      refetchInterval: 4000,
-      refetchIntervalInBackground: true,
+      staleTime: 6000,
+      refetchInterval: 8000,
+      refetchIntervalInBackground: false,
     },
   });
   const presenceQuery = useGetPresenceSnapshot({
     query: {
       queryKey: ['/api/presence'],
-      staleTime: 2500,
-      refetchInterval: 3000,
-      refetchIntervalInBackground: true,
+      enabled: enableRealtimeFeed,
+      staleTime: 6000,
+      refetchInterval: 9000,
+      refetchIntervalInBackground: false,
     },
   });
   const healthQuery = useHealthCheck({
     query: {
       queryKey: ['/api/healthz'],
-      staleTime: 10000,
+      staleTime: 15000,
       retry: 1,
-      refetchInterval: 10000,
-      refetchIntervalInBackground: true,
+      refetchInterval: 20000,
+      refetchIntervalInBackground: false,
     },
   });
   const currentUserQuery = useGetCurrentUser({
     query: {
       queryKey: ['/api/auth/me'],
-      enabled: Boolean(authSession?.token),
+      enabled: Boolean(authSession?.token) && enableRealtimeFeed,
       retry: false,
       staleTime: 30000,
     },
@@ -114,26 +119,28 @@ export default function Landing() {
   const homeFeedQuery = useGetHomeFeed({
     query: {
       queryKey: ['/api/auth/home-feed'],
-      enabled: Boolean(authSession?.token),
-      staleTime: 12000,
-      refetchInterval: 15000,
-      refetchIntervalInBackground: true,
+      enabled: Boolean(authSession?.token) && enableExtendedFeed,
+      staleTime: 20000,
+      refetchInterval: 30000,
+      refetchIntervalInBackground: false,
     },
   });
   const inviterLeaderboardQuery = useGetInviterLeaderboard({
     query: {
       queryKey: ['/api/leaderboard/inviters'],
-      staleTime: 15000,
-      refetchInterval: 20000,
-      refetchIntervalInBackground: true,
+      enabled: enableExtendedFeed,
+      staleTime: 30000,
+      refetchInterval: 45000,
+      refetchIntervalInBackground: false,
     },
   });
   const scheduledRoomsQuery = useListScheduledRooms({
     query: {
       queryKey: ['/api/rooms/upcoming'],
-      staleTime: 12000,
-      refetchInterval: 15000,
-      refetchIntervalInBackground: true,
+      enabled: enableExtendedFeed,
+      staleTime: 30000,
+      refetchInterval: 45000,
+      refetchIntervalInBackground: false,
     },
   });
 
@@ -215,6 +222,40 @@ export default function Landing() {
 
   useEffect(() => {
     document.title = '7MINUTES';
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    let interactiveTimer: ReturnType<typeof setTimeout> | null = null;
+    let enhancedTimer: ReturnType<typeof setTimeout> | null = null;
+    let idleHandle: number | null = null;
+
+    interactiveTimer = globalThis.setTimeout(() => {
+      if (!cancelled) {
+        setLandingStage('interactive');
+      }
+    }, 120);
+
+    const promoteEnhanced = () => {
+      if (!cancelled) {
+        setLandingStage('enhanced');
+      }
+    };
+
+    if ('requestIdleCallback' in window) {
+      idleHandle = window.requestIdleCallback(promoteEnhanced, { timeout: 1500 });
+    } else {
+      enhancedTimer = globalThis.setTimeout(promoteEnhanced, 1000);
+    }
+
+    return () => {
+      cancelled = true;
+      if (interactiveTimer !== null) window.clearTimeout(interactiveTimer);
+      if (enhancedTimer !== null) window.clearTimeout(enhancedTimer);
+      if (idleHandle !== null && 'cancelIdleCallback' in window) {
+        window.cancelIdleCallback(idleHandle);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -443,25 +484,27 @@ export default function Landing() {
   return (
     <main className="liquid-stage relative min-h-[100svh] overflow-x-hidden overflow-y-auto text-white">
       <LivingBackdrop primary={identityGlow} secondary="#ff00ff" tertiary="#9d00ff" energy={0.66} mode="landing" />
-      <RoomUniverse
-        rooms={rifts.map((room) => ({
-          id: room.id,
-          topic: room.topic,
-          type: room.type,
-          userCount: room.userCount,
-          maxUsers: room.maxUsers,
-          vibeColor: room.vibeColor,
-          temperature: room.temperature,
-          isChaosMode: room.isChaosMode,
-          isQuantum: room.isQuantum,
-          persistsUntilEmpty: room.persistsUntilEmpty,
-        }))}
-        hoveredRoomId={hoveredRoomId}
-        onHover={setHoveredRoomId}
-        onSelect={(roomId, topic, selectedMode) => {
-          void enterRoom(topic, roomId, selectedMode);
-        }}
-      />
+      {showUniverse && (
+        <RoomUniverse
+          rooms={rifts.map((room) => ({
+            id: room.id,
+            topic: room.topic,
+            type: room.type,
+            userCount: room.userCount,
+            maxUsers: room.maxUsers,
+            vibeColor: room.vibeColor,
+            temperature: room.temperature,
+            isChaosMode: room.isChaosMode,
+            isQuantum: room.isQuantum,
+            persistsUntilEmpty: room.persistsUntilEmpty,
+          }))}
+          hoveredRoomId={hoveredRoomId}
+          onHover={setHoveredRoomId}
+          onSelect={(roomId, topic, selectedMode) => {
+            void enterRoom(topic, roomId, selectedMode);
+          }}
+        />
+      )}
 
       <div className="screen-watermark-overlay" />
 

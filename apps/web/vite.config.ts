@@ -43,6 +43,23 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return;
+
+          if (id.includes("framer-motion")) return "motion";
+          if (
+            id.includes("@tanstack") ||
+            id.includes("@workspace/api-client-react") ||
+            id.includes("zod")
+          ) {
+            return "data";
+          }
+          if (id.includes("@radix-ui")) return "radix";
+        },
+      },
+    },
   },
   server: {
     port,
