@@ -711,11 +711,11 @@ export default function Rift() {
         )}
       </div>
 
-      <div className="pointer-events-none absolute bottom-4 left-4 z-[150] max-w-[min(80vw,21rem)] sm:bottom-8 sm:left-8">
+      <div className="pointer-events-none absolute bottom-4 left-4 z-[150] hidden max-w-[min(80vw,21rem)] sm:block sm:bottom-8 sm:left-8">
         <div className="text-[10px] uppercase tracking-[0.2em] text-white/28">{inputHint}</div>
       </div>
 
-      <div className="pointer-events-none absolute bottom-4 right-4 z-[150] max-w-[70vw] sm:bottom-8 sm:right-8 sm:max-w-none">
+      <div className="pointer-events-none absolute bottom-4 right-4 z-[150] hidden max-w-[70vw] sm:block sm:bottom-8 sm:right-8 sm:max-w-none">
         <div className="px-2 py-1.5 text-right text-[9px] uppercase tracking-[0.3em] text-white/18 sm:text-[10px] sm:tracking-[0.42em]">
           <div>{session.username}</div>
           <div className="mt-1.5">7MINUTES</div>
