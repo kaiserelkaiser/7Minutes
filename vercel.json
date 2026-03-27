@@ -8,6 +8,10 @@
     {
       "source": "/api/:path*",
       "destination": "https://api-production-a2c4.up.railway.app/api/:path*"
+    },
+    {
+      "source": "/:path((?!api/|assets/|.*\\..*).*)",
+      "destination": "/index.html"
     }
   ]
 }

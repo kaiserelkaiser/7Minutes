@@ -13,7 +13,7 @@ import {
   type RiftType,
 } from "../lib/riftManager";
 import { signRiftSessionToken } from "../lib/auth";
-import { recordRoomJoin, syncRoomSnapshot } from "../lib/persistence";
+import { getLiveRoomSnapshot, recordRoomJoin, syncRoomSnapshot } from "../lib/persistence";
 
 const router: IRouter = Router();
 const MAX_USERNAME_LENGTH = 20;
@@ -40,7 +40,7 @@ router.get("/rifts", (_req, res) => {
   res.json(data);
 });
 
-router.post("/rifts/join", (req, res) => {
+router.post("/rifts/join", async (req, res) => {
   const parseResult = JoinRiftBody.safeParse(req.body);
   if (!parseResult.success) {
     res.status(400).json({ error: "Invalid request body" });
@@ -77,7 +77,7 @@ router.post("/rifts/join", (req, res) => {
     return;
   }
 
-  void syncRoomSnapshot({
+  await syncRoomSnapshot({
     id: rift.id,
     topic: rift.revealedTopic ?? rift.topic,
     type: rift.type,
@@ -121,29 +121,51 @@ router.post("/rifts/join", (req, res) => {
   res.json(data);
 });
 
-router.get("/rifts/:id", (req, res) => {
+router.get("/rifts/:id", async (req, res) => {
   const rift = getRiftById(req.params.id);
-  if (!rift) {
+  if (rift) {
+    res.json({
+      rift: {
+        id: rift.id,
+        topic: rift.topic,
+        type: rift.type,
+        isQuantum: rift.isQuantum,
+        persistsUntilEmpty: rift.type === "context",
+        userCount: rift.users.size,
+        maxUsers: MAX_USERS_PER_RIFT,
+        createdAt: rift.createdAt,
+        expiresAt: rift.expiresAt,
+        vibeColor: rift.vibeColor,
+        temperature: rift.temperature,
+        isChaosMode: rift.isChaosMode,
+      },
+      joinable: rift.users.size < MAX_USERS_PER_RIFT,
+    });
+    return;
+  }
+
+  const snapshot = await getLiveRoomSnapshot(req.params.id);
+  if (!snapshot) {
     res.status(404).json({ error: "Rift not found" });
     return;
   }
 
   res.json({
     rift: {
-      id: rift.id,
-      topic: rift.topic,
-      type: rift.type,
-      isQuantum: rift.isQuantum,
-      persistsUntilEmpty: rift.type === "context",
-      userCount: rift.users.size,
+      id: snapshot.id,
+      topic: snapshot.topic,
+      type: snapshot.type,
+      isQuantum: snapshot.type === "quantum",
+      persistsUntilEmpty: snapshot.type === "context",
+      userCount: snapshot.activeUsers,
       maxUsers: MAX_USERS_PER_RIFT,
-      createdAt: rift.createdAt,
-      expiresAt: rift.expiresAt,
-      vibeColor: rift.vibeColor,
-      temperature: rift.temperature,
-      isChaosMode: rift.isChaosMode,
+      createdAt: snapshot.createdAt,
+      expiresAt: snapshot.expiresAt,
+      vibeColor: snapshot.vibe,
+      temperature: snapshot.temperature,
+      isChaosMode: snapshot.temperature >= 70,
     },
-    joinable: rift.users.size < MAX_USERS_PER_RIFT,
+    joinable: snapshot.activeUsers < MAX_USERS_PER_RIFT,
   });
 });
 

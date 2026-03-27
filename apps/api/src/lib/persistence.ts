@@ -970,6 +970,32 @@ export async function syncRoomSnapshot(room: RuntimeRiftSnapshot): Promise<void>
   );
 }
 
+export async function getLiveRoomSnapshot(roomId: string): Promise<RuntimeRiftSnapshot | null> {
+  const db = await getMongoDb();
+  if (!db) return null;
+
+  const room = await db.collection<RoomRecord>("rooms").findOne({ _id: roomId, isLive: true });
+  if (!room) return null;
+
+  if (room.type !== "context" && room.expiresAt <= new Date()) {
+    return null;
+  }
+
+  return {
+    id: room._id,
+    topic: room.topic,
+    type: room.type,
+    activeUsers: room.activeUsers,
+    temperature: room.temperature,
+    vibe: room.vibe,
+    createdAt: room.createdAt,
+    expiresAt: room.expiresAt,
+    totalMessages: room.totalMessages,
+    peakUsers: room.peakUsers,
+    isLive: room.isLive,
+  };
+}
+
 export async function recordMessage(message: RuntimeMessageSnapshot): Promise<void> {
   const db = await getMongoDb();
   if (!db) return;
