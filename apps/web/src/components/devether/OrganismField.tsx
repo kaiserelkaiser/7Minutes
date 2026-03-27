@@ -58,6 +58,8 @@ interface MessageExplosion {
 
 const CONTEXT_MESSAGE_LIFETIME_SECONDS = 420;
 const EXPLOSION_PALETTE = ['#00f5ff', '#ff00ff', '#ccff00', '#ff6b6b', '#9d00ff', '#ffffff'];
+const MESSAGE_COUNTER_RADIUS = 15.5;
+const MESSAGE_COUNTER_CIRCUMFERENCE = 2 * Math.PI * MESSAGE_COUNTER_RADIUS;
 
 function glitchText(content: string, stage: number) {
   if (stage < 3) return content;
@@ -569,23 +571,37 @@ export function OrganismField({
                   />
                 </svg>
 
-                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-6 text-center">
-                  {isContextRoom && (
-                    <div
-                      className="context-message-counter"
-                      style={
-                        {
-                          '--counter-accent': counterAccent,
-                          '--counter-ratio': `${blob.remainingRatio}`,
-                        } as CSSProperties
-                      }
-                    >
-                      <div className="context-message-counter__digits">{formatMiniClock(blob.remainingSeconds)}</div>
-                      <div className="context-message-counter__track">
-                        <span className="context-message-counter__fill" />
-                      </div>
+                {isContextRoom && (
+                  <div
+                    className="context-message-orbit"
+                    style={
+                      {
+                        '--counter-accent': counterAccent,
+                        '--counter-ratio': `${blob.remainingRatio}`,
+                      } as CSSProperties
+                    }
+                  >
+                    <span className="context-message-orbit__trail" />
+                    <div className="context-message-orbit__core">
+                      <svg className="context-message-orbit__ring" viewBox="0 0 42 42" aria-hidden="true">
+                        <circle className="context-message-orbit__ring-track" cx="21" cy="21" r={MESSAGE_COUNTER_RADIUS} />
+                        <circle
+                          className="context-message-orbit__ring-progress"
+                          cx="21"
+                          cy="21"
+                          r={MESSAGE_COUNTER_RADIUS}
+                          pathLength={100}
+                          strokeDasharray={MESSAGE_COUNTER_CIRCUMFERENCE}
+                          strokeDashoffset={MESSAGE_COUNTER_CIRCUMFERENCE * (1 - blob.remainingRatio)}
+                        />
+                      </svg>
+                      <div className="context-message-orbit__digits">{formatMiniClock(blob.remainingSeconds)}</div>
                     </div>
-                  )}
+                    <div className="context-message-orbit__label">7MIN</div>
+                  </div>
+                )}
+
+                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-6 text-center">
                   <div className="font-mono text-[10px] uppercase tracking-[0.34em] text-white/34">
                     {blob.message.username}
                   </div>

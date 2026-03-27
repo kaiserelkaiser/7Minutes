@@ -883,49 +883,91 @@
     cursor: grabbing;
   }
 
-  .context-message-counter {
+  .context-message-orbit {
     position: absolute;
-    right: 0.9rem;
-    top: 0.85rem;
+    right: -0.45rem;
+    top: -0.7rem;
     display: flex;
-    min-width: 4.6rem;
-    flex-direction: column;
-    gap: 0.28rem;
+    align-items: center;
+    gap: 0.45rem;
+    pointer-events: none;
+    transform: translate(18%, -8%);
+  }
+
+  .context-message-orbit__trail {
+    display: block;
+    width: 2.5rem;
+    height: 1px;
     border-radius: 999px;
-    border: 1px solid color-mix(in srgb, var(--counter-accent) 40%, rgba(255, 255, 255, 0.12));
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0), color-mix(in srgb, var(--counter-accent) 72%, rgba(255, 255, 255, 0.32)));
+    box-shadow: 0 0 16px color-mix(in srgb, var(--counter-accent) 30%, transparent);
+    opacity: 0.9;
+  }
+
+  .context-message-orbit__core {
+    position: relative;
+    width: 2.65rem;
+    height: 2.65rem;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--counter-accent) 34%, rgba(255, 255, 255, 0.12));
     background:
-      radial-gradient(circle at 22% 22%, rgba(255, 255, 255, 0.18), transparent 32%),
-      rgba(8, 4, 22, 0.7);
-    padding: 0.38rem 0.5rem 0.34rem;
+      radial-gradient(circle at 28% 24%, rgba(255, 255, 255, 0.2), transparent 30%),
+      rgba(7, 4, 18, 0.74);
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.08),
-      0 0 20px color-mix(in srgb, var(--counter-accent) 24%, transparent);
+      0 0 26px color-mix(in srgb, var(--counter-accent) 24%, transparent);
     backdrop-filter: blur(14px);
   }
 
-  .context-message-counter__digits {
+  .context-message-orbit__ring {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+  }
+
+  .context-message-orbit__ring-track,
+  .context-message-orbit__ring-progress {
+    fill: none;
+  }
+
+  .context-message-orbit__ring-track {
+    stroke: rgba(255, 255, 255, 0.08);
+    stroke-width: 2.4;
+  }
+
+  .context-message-orbit__ring-progress {
+    stroke: color-mix(in srgb, var(--counter-accent) 78%, rgba(255, 255, 255, 0.88));
+    stroke-width: 2.6;
+    stroke-linecap: round;
+    filter: drop-shadow(0 0 8px color-mix(in srgb, var(--counter-accent) 48%, transparent));
+  }
+
+  .context-message-orbit__digits {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     font-family: var(--font-mono);
-    font-size: 0.58rem;
-    letter-spacing: 0.18em;
+    font-size: 0.47rem;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
     color: rgba(255, 255, 255, 0.82);
   }
 
-  .context-message-counter__track {
-    position: relative;
-    overflow: hidden;
-    height: 3px;
+  .context-message-orbit__label {
+    padding: 0.2rem 0.44rem 0.18rem;
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.08);
-  }
-
-  .context-message-counter__fill {
-    display: block;
-    height: 100%;
-    width: calc(var(--counter-ratio) * 100%);
-    border-radius: 999px;
-    background: linear-gradient(90deg, var(--counter-accent), rgba(255, 255, 255, 0.92));
-    box-shadow: 0 0 10px var(--counter-accent);
+    border: 1px solid color-mix(in srgb, var(--counter-accent) 22%, rgba(255, 255, 255, 0.08));
+    background: rgba(8, 5, 18, 0.62);
+    font-family: var(--font-mono);
+    font-size: 0.45rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--counter-accent) 78%, rgba(255, 255, 255, 0.88));
+    box-shadow: 0 0 18px color-mix(in srgb, var(--counter-accent) 18%, transparent);
   }
 
   .message-explosion-ring {
